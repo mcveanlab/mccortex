@@ -261,13 +261,12 @@ typedef struct
 static inline void fetch_coverages(dBNodeBuffer nbuf, CovgBuffer *cbuf,
                                    const dBGraph *db_graph)
 {
-  ctx_assert(db_graph->num_of_cols == 1);
   size_t i;
   covg_buf_reset(cbuf);
   covg_buf_capacity(cbuf, nbuf.len);
   cbuf->len = nbuf.len;
   for(i = 0; i < nbuf.len; i++)
-    cbuf->b[i] = db_graph->col_covgs[nbuf.b[i].key];
+    cbuf->b[i] = db_node_sum_covg(db_graph, nbuf.b[i].key);
 }
 
 static inline bool nodes_are_tip(dBNodeBuffer nbuf, const dBGraph *db_graph)
@@ -514,6 +513,7 @@ static inline void unitig_mark(dBNodeBuffer nbuf, size_t threadid, void *arg)
   // Remove tips
   removable_tip = nodes_are_removable_tip(nbuf, cl->min_keep_tip, cl->db_graph);
 
+  // TODO: replace this with thread local counters and sum counts afterwards
   if(low_covg_snode && removable_tip) {
     __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_and_low_snodes, 1);
     __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_and_low_snode_kmers, nbuf.len);
@@ -557,7 +557,6 @@ void clean_graph(size_t num_threads,
                  const char *covgs_csv_path, const char *lens_csv_path,
                  uint8_t *visited, uint8_t *keep, dBGraph *db_graph)
 {
-  ctx_assert(db_graph->num_of_cols == 1);
   ctx_assert(db_graph->num_edge_cols > 0);
 
   size_t init_nkmers = db_graph->ht.num_kmers;

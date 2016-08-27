@@ -31,62 +31,62 @@ seq.fa:
 	$(DNACAT) -F -n 100 > $@
 
 seq.k$(K).ctx: seq.fa
-	$(MCCORTEX) build -k $(K) --sample PinkPanther --seq $< $@
-	$(MCCORTEX) inferedges --all $@
+	$(MCCORTEX) build -q -k $(K) --sample PinkPanther --seq $< $@
+	$(MCCORTEX) inferedges -q --all $@
 
 noedges.k$(K).ctx: seq.k$(K).ctx
-	$(MCCORTEX) build -k $(K) -m 1M --sample Puma \
+	$(MCCORTEX) build -q -k $(K) -m 1M --sample Puma \
 	             --seq <($(MCCORTEX) view -q -k $< | awk '{for(i=0;i<$$2;i++){print $$1}}') $@
 
 mix.11.k$(K).ctx: seq.k$(K).ctx
-	$(MCCORTEX) join -m 1M -o $@ seq.k$(K).ctx seq.k$(K).ctx
+	$(MCCORTEX) join -q -m 1M -o $@ seq.k$(K).ctx seq.k$(K).ctx
 
 mix.10.k$(K).ctx: seq.k$(K).ctx noedges.k$(K).ctx
-	$(MCCORTEX) join -m 1M -o $@ seq.k$(K).ctx noedges.k$(K).ctx
+	$(MCCORTEX) join -q -m 1M -o $@ seq.k$(K).ctx noedges.k$(K).ctx
 
 mix.01.k$(K).ctx: seq.k$(K).ctx noedges.k$(K).ctx
-	$(MCCORTEX) join -m 1M -o $@ noedges.k$(K).ctx seq.k$(K).ctx
+	$(MCCORTEX) join -q -m 1M -o $@ noedges.k$(K).ctx seq.k$(K).ctx
 
 mix.00.k$(K).ctx: seq.k$(K).ctx noedges.k$(K).ctx
-	$(MCCORTEX) join -m 1M -o $@ noedges.k$(K).ctx noedges.k$(K).ctx
+	$(MCCORTEX) join -q -m 1M -o $@ noedges.k$(K).ctx noedges.k$(K).ctx
 
 # 1) Stream
 fix.1a.ctx: mix.10.k$(K).ctx
-	cat $< | $(MCCORTEX) inferedges -m 1M --all - > $@
+	cat $< | $(MCCORTEX) inferedges -q -m 1M --all - > $@
 fix.1b.ctx: mix.10.k$(K).ctx
-	cat $< | $(MCCORTEX) inferedges -m 1M --pop - > $@
+	cat $< | $(MCCORTEX) inferedges -q -m 1M --pop - > $@
 
 # Edit file in place (mmap)
 fix.1c.ctx: mix.10.k$(K).ctx
 	cp mix.10.k$(K).ctx $@
-	$(MCCORTEX) inferedges --all $@
+	$(MCCORTEX) inferedges -q --all $@
 fix.1d.ctx: mix.10.k$(K).ctx
 	cp mix.10.k$(K).ctx $@
-	$(MCCORTEX) inferedges --pop $@
+	$(MCCORTEX) inferedges -q --pop $@
 
 # Separate input + output files
 fix.1e.ctx: mix.10.k$(K).ctx
-	$(MCCORTEX) inferedges --all -o $@ $<
+	$(MCCORTEX) inferedges -q --all -o $@ $<
 fix.1f.ctx: mix.10.k$(K).ctx
-	$(MCCORTEX) inferedges --pop -o $@ $<
+	$(MCCORTEX) inferedges -q --pop -o $@ $<
 
 # 2) fix on 01 is same as 10
 fix.2a.ctx: mix.01.k$(K).ctx
-	$(MCCORTEX) inferedges --all -o $@ $<
+	$(MCCORTEX) inferedges -q --all -o $@ $<
 fix.2b.ctx: mix.01.k$(K).ctx
-	$(MCCORTEX) inferedges --pop -o $@ $<
+	$(MCCORTEX) inferedges -q --pop -o $@ $<
 
 # 3) fix on 11 is just 11
 fix.3a.ctx: mix.11.k$(K).ctx
-	$(MCCORTEX) inferedges --all -o $@ $<
+	$(MCCORTEX) inferedges -q --all -o $@ $<
 fix.3b.ctx: mix.11.k$(K).ctx
-	$(MCCORTEX) inferedges --pop -o $@ $<
+	$(MCCORTEX) inferedges -q --pop -o $@ $<
 
 # fix on 00 is just 00
 fix.4a.ctx: mix.00.k$(K).ctx
-	$(MCCORTEX) inferedges --all -o $@ $<
+	$(MCCORTEX) inferedges -q --all -o $@ $<
 fix.4b.ctx: mix.00.k$(K).ctx
-	$(MCCORTEX) inferedges --pop -o $@ $<
+	$(MCCORTEX) inferedges -q --pop -o $@ $<
 
 #
 #  CAAGG TEST: Tests inferring population kmers
@@ -103,19 +103,19 @@ CAAGG.next.txt:
 	printf "AAGGA\nAAGGC\nAAGGG\nAAGGT\n" > $@
 
 CAAGG.left.kmers.k5.ctx: CAAGG.prev.txt
-	$(MCCORTEX) build -m 1M -k 5 --sample LeftKmers --seq <(echo CAAGG; cat CAAGG.prev.txt) $@
+	$(MCCORTEX) build -q -m 1M -k 5 --sample LeftKmers --seq <(echo CAAGG; cat CAAGG.prev.txt) $@
 
 CAAGG.right.kmers.k5.ctx: CAAGG.next.txt
-	$(MCCORTEX) build -m 1M -k 5 --sample RightKmers --seq <(echo CAAGG; cat CAAGG.next.txt) $@
+	$(MCCORTEX) build -q -m 1M -k 5 --sample RightKmers --seq <(echo CAAGG; cat CAAGG.next.txt) $@
 
 CAAGG.left.edges.k5.ctx:
-	$(MCCORTEX) build -m 1M -k 5 --sample LeftEdges --seq <(printf "ACAAG\nCCAAGG\nGCAAG\nTCAAG") $@
+	$(MCCORTEX) build -q -m 1M -k 5 --sample LeftEdges --seq <(printf "ACAAG\nCCAAGG\nGCAAG\nTCAAG") $@
 
 CAAGG.right.edges.k5.ctx:
-	$(MCCORTEX) build -m 1M -k 5 --sample RightEdges --seq <(printf "AAGGA\nAAGGC\nAAGGG\nCAAGGT\n") $@
+	$(MCCORTEX) build -q -m 1M -k 5 --sample RightEdges --seq <(printf "AAGGA\nAAGGC\nAAGGG\nCAAGGT\n") $@
 
 empty.k5.ctx:
-	$(MCCORTEX) build -m 1M -k 5 --sample MsEmpty --seq <(echo) $@
+	$(MCCORTEX) build -q -m 1M -k 5 --sample MsEmpty --seq <(echo) $@
 
 # Colour 0 has all kmers and 2 edges
 # Colour 1 has left kmers but no edges (gets 1 from infer)
@@ -123,15 +123,15 @@ empty.k5.ctx:
 # Colour 3 has all kmers but no edges (gets them from infer)
 # Colour 4 has no kmers
 CAAGG.k5.ctx: CAAGG.left.kmers.k5.ctx CAAGG.right.kmers.k5.ctx CAAGG.left.edges.k5.ctx CAAGG.right.edges.k5.ctx empty.k5.ctx
-	$(MCCORTEX) join --out $@ \
+	$(MCCORTEX) join -q -o $@ \
 	  0:CAAGG.left.edges.k5.ctx 0:CAAGG.right.edges.k5.ctx \
     1:CAAGG.left.kmers.k5.ctx \
     2:CAAGG.right.kmers.k5.ctx \
     3:CAAGG.left.kmers.k5.ctx 3:CAAGG.right.kmers.k5.ctx \
-    4:empty.k5.ctx \
+    4:empty.k5.ctx
 
 CAAGG.infer.k5.ctx: CAAGG.k5.ctx
-	$(MCCORTEX) inferedges --pop -o $@ $<
+	$(MCCORTEX) inferedges -q --pop -o $@ $<
 
 CAAGG.infer.k5.col%.txt: CAAGG.infer.k5.ctx
 	$(MCCORTEX) view -q --kmers $<:$* | sort > $@

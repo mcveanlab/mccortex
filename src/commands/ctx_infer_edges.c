@@ -54,7 +54,7 @@ static size_t inferedges_on_mmap(const dBGraph *db_graph, bool add_all_edges,
 {
   // ctx_assert2(file->strm.b == NULL, "File should not be buffered");
   ctx_assert(db_graph->num_of_cols == file->hdr.num_of_cols);
-  ctx_assert(file_filter_is_direct(&file->fltr));
+  ctx_assert(file_filter_from_direct(&file->fltr));
   ctx_assert2(!isatty(fileno(file->fh)), "Use inferedges_on_stream() instead");
   ctx_assert(file->num_of_kmers >= 0);
   ctx_assert(file->file_size >= 0);
@@ -115,7 +115,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
                                  GraphFileReader *file, FILE *fout)
 {
   // ctx_assert(db_graph->num_of_cols == file->hdr.num_of_cols);
-  ctx_assert(file_filter_is_direct(&file->fltr));
+  ctx_assert(file_filter_from_direct(&file->fltr));
   ctx_assert2(!isatty(fileno(file->fh)), "Use inferedges_on_stream() instead");
   ctx_assert(fout != NULL);
   ctx_assert(fileno(file->fh) != fileno(fout));
@@ -129,10 +129,10 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
   if(graph_file_fseek(file, file->hdr_size, SEEK_SET) != 0)
     die("graph_file_fseek failed: %s", strerror(errno));
 
-  const size_t ncols = file->hdr.num_of_cols;
+  const size_t file_ncols = file->hdr.num_of_cols;
   BinaryKmer bkmer;
-  Edges edges[ncols];
-  Covg covgs[ncols];
+  Edges edges[file_ncols];
+  Covg covgs[file_ncols];
 
   size_t num_kmers_edited = 0;
   bool updated;
@@ -142,7 +142,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
     updated = (add_all_edges ? infer_all_edges(bkmer, edges, covgs, db_graph)
                              : infer_pop_edges(bkmer, edges, covgs, db_graph));
 
-    graph_write_kmer(fout, file->hdr.num_of_cols, bkmer, covgs, edges);
+    graph_write_kmer(fout, file_ncols, bkmer, covgs, edges);
 
     num_kmers_edited += updated;
   }
@@ -220,7 +220,7 @@ int ctx_infer_edges(int argc, char **argv)
   bool use_buf = true;
   graph_file_open2(&file, graph_path, reading_stream ? "r" : "r+", use_buf, 0);
 
-  if(!file_filter_is_direct(&file.fltr))
+  if(!file_filter_from_direct(&file.fltr))
     cmd_print_usage("Inferedges with filter not implemented - sorry");
 
   FILE *fout = NULL;
@@ -290,7 +290,7 @@ int ctx_infer_edges(int argc, char **argv)
     ctx_assert(fout != NULL);
     num_kmers_edited = infer_edges(num_of_threads, add_all_edges, &db_graph);
     graph_write_header(fout, &file.hdr);
-    graph_write_all_kmers(fout, &db_graph, false);
+    graph_write_all_kmers_direct(fout, &db_graph, false, &file.hdr);
   }
   else if(fout == NULL) {
     // Reading from file, writing to same file

@@ -14,6 +14,7 @@ const char clean_usage[] =
 "\n"
 "  Clean a cortex graph. Joins graphs first, if multiple inputs given.\n"
 "  If neither -T or -U specified, just saves output statistics.\n"
+"  If given a multisample graph, cleans each sample against the merged population.\n"
 "\n"
 "  -h, --help               This help message\n"
 "  -q, --quiet              Silence status output normally printed to STDERR\n"
@@ -23,6 +24,7 @@ const char clean_usage[] =
 "  -n, --nkmers <kmers>     Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>        Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -N, --ncols <N>          Number of graph colours to use\n"
+"  -S, --sort               Output a graph file ordered by kmer\n"
 "\n"
 "  Cleaning:\n"
 "  -T[L], --tips[=L]        Clip tips shorter than <L> kmers [default: auto]\n"
@@ -49,6 +51,8 @@ static struct option longopts[] =
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
   {"threads",      required_argument, NULL, 't'},
+  {"ncols",        required_argument, NULL, 'N'},
+  {"sort",         no_argument,       NULL, 'S'},
 // command specific
   {"tips",         optional_argument, NULL, 'T'},
   {"unitigs",      optional_argument, NULL, 'U'},
@@ -61,16 +65,84 @@ static struct option longopts[] =
   {NULL, 0, NULL, 0}
 };
 
+// Returns number of kmers in the hash table
+static size_t ctx_cleaning_memory(struct MemArgs memargs, bool use_mem_limit,
+                                  uint64_t ctx_max_kmers, uint64_t ctx_sum_kmers,
+                                  size_t file_ncols, size_t graph_ncols,
+                                  bool sort_kmers, size_t *graph_mem_ptr)
+{
+  bool all_colours_loaded = (file_ncols <= graph_ncols);
+
+  size_t bits_per_kmer, per_col_bits;
+  size_t extra_edge_bits, sort_kmers_bits;
+
+  per_col_bits = (sizeof(Covg)+sizeof(Edges)) * 8;
+  // We need to store pop edges + sample edges if we haven't loaded all sample
+  extra_edge_bits = (all_colours_loaded ? 0 : sizeof(Edges) * 8);
+  sort_kmers_bits = (sort_kmers ? sizeof(hkey_t)*8 : 0);
+
+  bits_per_kmer = sizeof(BinaryKmer)*8 +
+                  per_col_bits * graph_ncols +
+                  extra_edge_bits +
+                  sort_kmers_bits;
+
+  return cmd_get_kmers_in_hash(memargs.mem_to_use,
+                               memargs.mem_to_use_set,
+                               memargs.num_kmers,
+                               memargs.num_kmers_set,
+                               bits_per_kmer,
+                               ctx_max_kmers, ctx_sum_kmers,
+                               use_mem_limit, graph_mem_ptr);
+}
+
+// Returns number of kmers in the hash table
+static size_t ctx_max_cols(struct MemArgs memargs, uint64_t ctx_max_kmers,
+                           size_t file_ncols, bool sort_kmers)
+{
+  // Maximise the number of colours we load to fill the mem
+  size_t bits_per_kmer, kmers_in_hash;
+  size_t per_col_bits, extra_edge_bits, sort_kmers_bits, ncols;
+
+  kmers_in_hash = ctx_max_kmers / IDEAL_OCCUPANCY;
+  per_col_bits = (sizeof(Covg)+sizeof(Edges)) * 8;
+  // We need to store pop edges + sample edges if we haven't loaded all sample
+  extra_edge_bits = sizeof(Edges) * 8;
+  sort_kmers_bits = (sort_kmers ? sizeof(hkey_t)*8 : 0);
+
+  bits_per_kmer = sizeof(BinaryKmer)*8 +
+                  per_col_bits * file_ncols +
+                  sort_kmers_bits;
+
+  if((bits_per_kmer*kmers_in_hash)/8 <= memargs.mem_to_use) {
+    return file_ncols;
+  }
+
+  // can't load all colours at once, need extra edge bits
+  // remove colour specific bits for now
+  bits_per_kmer = sizeof(BinaryKmer)*8 +
+                  extra_edge_bits +
+                  sort_kmers_bits;
+
+  ncols = (memargs.mem_to_use*8 - bits_per_kmer*kmers_in_hash) /
+          (per_col_bits*kmers_in_hash);
+
+  return MIN2(ncols, file_ncols);
+}
+
 int ctx_clean(int argc, char **argv)
 {
-  size_t nthreads = 0, use_ncols = 0;
+  size_t nthreads = 0;
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_ctx_path = NULL;
+  bool sort_kmers = false;
   int min_keep_tip = -1, unitig_min = -1; // <0 => default, 0 => noclean
   bool unitig_cleaning = false, tip_cleaning = false;
   uint32_t fallback_thresh = 0;
   const char *len_before_path = NULL, *len_after_path = NULL;
   const char *covg_before_path = NULL, *covg_after_path = NULL;
+
+  // User specified ncols, input colours, how many colours choose to use
+  size_t user_ncols = 0, file_ncols = 0, using_ncols = 0;
 
   // Arg parsing
   char cmd[100];
@@ -93,14 +165,14 @@ int ctx_clean(int argc, char **argv)
         break;
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
-      case 'N': use_ncols = cmd_uint32_nonzero(cmd, optarg); break;
+      case 'N': user_ncols = cmd_uint32_nonzero(cmd, optarg); break;
       case 't': cmd_check(!nthreads, cmd); nthreads = cmd_uint32_nonzero(cmd, optarg); break;
       case 'T':
         cmd_check(min_keep_tip<0, cmd);
         min_keep_tip = (optarg != NULL ? (int)cmd_uint32(cmd, optarg) : -1);
         tip_cleaning = true;
         break;
-      case 'S':
+      case 'S': cmd_check(!sort_kmers,cmd); sort_kmers = true; break;
       case 'U':
         cmd_check(unitig_min<0, cmd);
         unitig_min = (optarg != NULL ? cmd_uint32(cmd, optarg) : -1);
@@ -158,34 +230,26 @@ int ctx_clean(int argc, char **argv)
 
   // Open graph files
   GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
-  size_t col, ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  size_t col, ctx_max_kmers = 0, ctx_sum_kmers = 0;
 
-  ncols = graph_files_open(gfile_paths, gfiles, num_gfiles,
-                           &ctx_max_kmers, &ctx_sum_kmers);
+  file_ncols = graph_files_open(gfile_paths, gfiles, num_gfiles,
+                                &ctx_max_kmers, &ctx_sum_kmers);
 
   size_t kmer_size = gfiles[0].hdr.kmer_size;
-
-  // default to one colour for now
-  if(use_ncols == 0) use_ncols = 1;
 
   // Flatten if we don't have to remember colours / output a graph
   if(out_ctx_path == NULL)
   {
-    ncols = use_ncols = 1;
+    file_ncols = 1;
     for(i = 0; i < num_gfiles; i++)
       file_filter_flatten(&gfiles[i].fltr, 0);
   }
 
-  if(ncols < use_ncols) {
+  if(file_ncols < user_ncols) {
     warn("I only need %zu colour%s ('--ncols %zu' ignored)",
-         ncols, util_plural_str(ncols), use_ncols);
-    use_ncols = ncols;
+         file_ncols, util_plural_str(file_ncols), user_ncols);
+    user_ncols = file_ncols;
   }
-
-  char max_kmers_str[100];
-  ulong_to_str(ctx_max_kmers, max_kmers_str);
-  status("%zu input graph%s, max kmers: %s, using %zu colours",
-         num_gfiles, util_plural_str(num_gfiles), max_kmers_str, use_ncols);
 
   // If no arguments given we default to removing tips < 2*kmer_size
   if(min_keep_tip < 0)
@@ -234,31 +298,26 @@ int ctx_clean(int argc, char **argv)
   //
   // Decide memory usage
   //
-  bool all_colours_loaded = (ncols <= use_ncols);
   bool use_mem_limit = (memargs.mem_to_use_set && num_gfiles > 1) || !ctx_max_kmers;
+  size_t kmers_in_hash = 0, graph_mem = 0;
+  bool all_colours_loaded;
 
-  size_t kmers_in_hash, bits_per_kmer, graph_mem;
-  size_t per_col_bits = (sizeof(Covg)+sizeof(Edges)) * 8;
-  size_t extra_edge_bits = (all_colours_loaded ? 0 : sizeof(Edges) * 8);
+  if(user_ncols)
+    using_ncols = user_ncols;
+  else
+    using_ncols = ctx_max_cols(memargs, ctx_max_kmers, file_ncols, sort_kmers);
 
-  bits_per_kmer = sizeof(BinaryKmer)*8 +
-                  per_col_bits * use_ncols +
-                  extra_edge_bits;
+  all_colours_loaded = (using_ncols == file_ncols);
+  kmers_in_hash = ctx_cleaning_memory(memargs, use_mem_limit,
+                                      ctx_max_kmers, ctx_sum_kmers,
+                                      file_ncols, using_ncols,
+                                      sort_kmers, &graph_mem);
 
-  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
-                                        memargs.mem_to_use_set,
-                                        memargs.num_kmers,
-                                        memargs.num_kmers_set,
-                                        bits_per_kmer,
-                                        ctx_max_kmers, ctx_sum_kmers,
-                                        use_mem_limit, &graph_mem);
-
-  // Maximise the number of colours we load to fill the mem
-  size_t max_usencols = (memargs.mem_to_use*8 -
-                         sizeof(BinaryKmer)*8*kmers_in_hash +
-                         extra_edge_bits*kmers_in_hash) /
-                        (per_col_bits*kmers_in_hash);
-  use_ncols = MIN2(max_usencols, ncols);
+  char max_kmers_str[100];
+  ulong_to_str(ctx_max_kmers, max_kmers_str);
+  status("[cleaning] %zu input graph%s, max kmers: %s, using %zu colour%s",
+         num_gfiles, util_plural_str(num_gfiles), max_kmers_str,
+         using_ncols, util_plural_str(using_ncols));
 
   cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
 
@@ -277,12 +336,12 @@ int ctx_clean(int argc, char **argv)
   // Load as many colours as possible
   // Use an extra set of edge to take intersections
   dBGraph db_graph;
-  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, use_ncols, use_ncols,
+  db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size, using_ncols, using_ncols,
                  kmers_in_hash, DBG_ALLOC_EDGES | DBG_ALLOC_COVGS);
 
   // Extra edges required to hold union of kept edges
   Edges *edges_union = NULL;
-  if(use_ncols < ncols)
+  if(!all_colours_loaded)
     edges_union = ctx_calloc(db_graph.ht.capacity, sizeof(Edges));
 
   // Load graph into a single colour
@@ -294,13 +353,13 @@ int ctx_clean(int argc, char **argv)
   for(i = 0; i < num_gfiles; i++)
     graph_file_merge_header(&outhdr, &gfiles[i]);
 
-  if(ncols > use_ncols)
+  if(!all_colours_loaded)
   {
     db_graph.num_of_cols = db_graph.num_edge_cols = 1;
     SWAP(edges_union, db_graph.col_edges);
     graphs_load_files_flat(gfiles, num_gfiles, gprefs, NULL);
     SWAP(edges_union, db_graph.col_edges);
-    db_graph.num_of_cols = db_graph.num_edge_cols = use_ncols;
+    db_graph.num_of_cols = db_graph.num_edge_cols = using_ncols;
   }
   else {
     for(i = 0; i < num_gfiles; i++)
@@ -309,7 +368,7 @@ int ctx_clean(int argc, char **argv)
 
   char num_kmers_str[100];
   ulong_to_str(db_graph.ht.num_kmers, num_kmers_str);
-  status("Total kmers loaded: %s\n", num_kmers_str);
+  status("[cleaning] Total kmers loaded: %s\n", num_kmers_str);
 
   size_t initial_nkmers = db_graph.ht.num_kmers;
   hash_table_print_stats(&db_graph.ht);
@@ -361,7 +420,7 @@ int ctx_clean(int argc, char **argv)
   if(out_ctx_path != NULL)
   {
     // Set output header ginfo cleaned
-    for(col = 0; col < ncols; col++)
+    for(col = 0; col < using_ncols; col++)
     {
       cleaning = &outhdr.ginfo[col].cleaning;
       cleaning->cleaned_snodes |= unitig_cleaning;
@@ -393,8 +452,9 @@ int ctx_clean(int argc, char **argv)
 
     // kmers_loaded=true
     graph_writer_merge(out_ctx_path, gfiles, num_gfiles,
-                      true, all_colours_loaded,
-                      edges_union, &outhdr, &db_graph);
+                       true, all_colours_loaded,
+                       edges_union, &outhdr,
+                       sort_kmers, &db_graph);
   }
 
   ctx_check(db_graph.ht.num_kmers == hash_table_count_kmers(&db_graph.ht));

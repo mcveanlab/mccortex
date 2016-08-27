@@ -35,35 +35,35 @@ read.2.fa:
 	echo ACGGCCACTG > $@
 
 genome.k$(K).ctx: genome.fa
-	$(MCCORTEX) build -k $(K) --sample Genome --seq genome.fa --sample Gen2 --seq genome.fa genome.k$(K).ctx
+	$(MCCORTEX) build -q -k $(K) --sample Genome --seq genome.fa --sample Gen2 --seq genome.fa genome.k$(K).ctx
 
 reads.se.one.k$(K).ctp.gz: genome.k$(K).ctx read.se.fa
-	$(MCCORTEX) thread -m 1M --frag-hist frag-hist.se1.csv --gap-hist gap-hist.se1.csv --print-contigs --print-paths --one-way --seq read.se.fa -o $@ genome.k$(K).ctx:0
-	$(MCCORTEX) check -p $@ genome.k$(K).ctx:0
+	$(MCCORTEX) thread -q -m 1M --frag-hist frag-hist.se1.csv --gap-hist gap-hist.se1.csv --print-contigs --print-paths --one-way --seq read.se.fa -o $@ genome.k$(K).ctx:0
+	$(MCCORTEX) check -q -p $@ genome.k$(K).ctx:0
 
 reads.se.two.k$(K).ctp.gz: genome.k$(K).ctx read.se.fa
-	$(MCCORTEX) thread -m 1M --frag-hist frag-hist.se2.csv --gap-hist gap-hist.se2.csv --print-contigs --print-paths --two-way --seq read.se.fa -o $@ genome.k$(K).ctx:0
-	$(MCCORTEX) check -p $@ genome.k$(K).ctx:0
+	$(MCCORTEX) thread -q -m 1M --frag-hist frag-hist.se2.csv --gap-hist gap-hist.se2.csv --print-contigs --print-paths --two-way --seq read.se.fa -o $@ genome.k$(K).ctx:0
+	$(MCCORTEX) check -q -p $@ genome.k$(K).ctx:0
 
 reads.pe.one.k$(K).ctp.gz: genome.k$(K).ctx read.1.fa read.2.fa
-	$(MCCORTEX) thread -m 1M --frag-hist frag-hist.pe1.csv --gap-hist gap-hist.pe1.csv --print-contigs --print-paths --one-way --seq2 read.1.fa:read.2.fa -o $@ genome.k$(K).ctx:0
-	$(MCCORTEX) check -p $@ genome.k$(K).ctx:0
+	$(MCCORTEX) thread -q -m 1M --frag-hist frag-hist.pe1.csv --gap-hist gap-hist.pe1.csv --print-contigs --print-paths --one-way --seq2 read.1.fa:read.2.fa -o $@ genome.k$(K).ctx:0
+	$(MCCORTEX) check -q -p $@ genome.k$(K).ctx:0
 
 reads.pe.two.k$(K).ctp.gz: genome.k$(K).ctx read.1.fa read.2.fa
-	$(MCCORTEX) thread -m 1M --frag-hist frag-hist.pe2.csv --gap-hist gap-hist.pe2.csv --print-contigs --print-paths --two-way --seq2 read.1.fa:read.2.fa -o $@ genome.k$(K).ctx:0
-	$(MCCORTEX) check -p $@ genome.k$(K).ctx:0
+	$(MCCORTEX) thread -q -m 1M --frag-hist frag-hist.pe2.csv --gap-hist gap-hist.pe2.csv --print-contigs --print-paths --two-way --seq2 read.1.fa:read.2.fa -o $@ genome.k$(K).ctx:0
+	$(MCCORTEX) check -q -p $@ genome.k$(K).ctx:0
 
 join.k$(K).ctp.gz: reads.se.one.k$(K).ctp.gz reads.se.two.k$(K).ctp.gz reads.pe.one.k$(K).ctp.gz reads.pe.two.k$(K).ctp.gz
-	$(MCCORTEX) pjoin -m 1M --out $@ reads.{se,pe}.{one,two}.k$(K).ctp.gz
+	$(MCCORTEX) pjoin -q -m 1M --out $@ reads.{se,pe}.{one,two}.k$(K).ctp.gz
 
 genome.k$(K).pdf:
 	$(CTX2DOT) genome.k$(K).ctx:0 | dot -Tpdf > genome.k$(K).pdf
 
 tmp.k$(K).ctx:
-	$(MCCORTEX) join -m 1M -o $@ 0-3:genome.k$(K).ctx:0,0,0,0
+	$(MCCORTEX) join -q -m 1M -o $@ 0-3:genome.k$(K).ctx:0,0,0,0
 
 check: join.k$(K).ctp.gz tmp.k$(K).ctx
-	$(MCCORTEX) check -p join.k$(K).ctp.gz tmp.k$(K).ctx
+	$(MCCORTEX) check -q -p join.k$(K).ctp.gz tmp.k$(K).ctx
 
 # seq-gaps -> gap-hist
 # mp-gaps -> frag-hist

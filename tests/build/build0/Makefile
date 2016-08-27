@@ -35,7 +35,7 @@ sort.k$(K).ctx: seq.k$(K).ctx
 	$(MCCORTEX) view -q -k $< > /dev/null
 	$(MCCORTEX) sort -q $@
 	$(MCCORTEX) check -q $@
-	$(MCCORTEX) view -k $@ > /dev/null
+	$(MCCORTEX) view -q -k $@ > /dev/null
 
 %.ctx.idx: %.ctx
 	$(MCCORTEX) index -q $< > $@

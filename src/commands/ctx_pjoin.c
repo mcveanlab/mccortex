@@ -112,7 +112,7 @@ int ctx_pjoin(int argc, char **argv)
     ctp_max_kmers = MAX2(ctp_max_kmers, nkmers);
     ctp_sum_kmers += nkmers;
 
-    file_filter_status(&pfiles[i].fltr);
+    file_filter_status(&pfiles[i].fltr, false);
   }
 
 

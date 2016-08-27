@@ -143,18 +143,6 @@ void db_node_increment_coverage_mt(dBGraph *graph, hkey_t hkey, Colour col)
         !__sync_bool_compare_and_swap(&db_node_covg(graph,hkey,col), v, v+1));
 }
 
-Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey)
-{
-  const Covg *covgs = &db_node_covg(graph,hkey,0);
-  Covg sum_covg = 0;
-  size_t col;
-
-  for(col = 0; col < graph->num_of_cols; col++)
-    SAFE_SUM_COVG(sum_covg, covgs[col]);
-
-  return sum_covg;
-}
-
 //
 // dBNode reversal and shifting
 //

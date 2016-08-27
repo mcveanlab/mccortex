@@ -301,7 +301,14 @@ void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col);
 // Thread safe, overflow safe, coverage increment
 void db_node_increment_coverage_mt(dBGraph *graph, hkey_t hkey, Colour col);
 
-Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey);
+static inline Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey)
+{
+  const Covg *covgs = &db_node_covg(graph,hkey,0);
+  Covg sum_covg = covgs[0];
+  size_t c, ncols = graph->num_of_cols;
+  for(c = 1; c < ncols; c++) SAFE_SUM_COVG(sum_covg, covgs[c]);
+  return sum_covg;
+}
 
 //
 // dBNodeBuffer

@@ -80,7 +80,7 @@ int ctx_sort(int argc, char **argv)
   memset(&gfile, 0, sizeof(GraphFileReader));
   graph_file_open2(&gfile, ctx_path, out_path ? "r" : "r+", true, 0);
 
-  if(!file_filter_is_direct(&gfile.fltr))
+  if(!file_filter_from_direct(&gfile.fltr))
     die("Cannot open graph file with a filter ('in.ctx:blah' syntax)");
 
   size_t num_kmers, memory;

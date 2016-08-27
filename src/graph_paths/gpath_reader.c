@@ -325,7 +325,7 @@ void link_line_parse(const StrBuf *line, int version, const FileFilter *fltr,
   size_buf_reset(counts);
   if(comma_list_to_array(cols[NSEEN_COL], counts) != (int)collens[NSEEN_COL])
     bad_link_line(path,line);
-  else if(counts->len != fltr->filencols)
+  else if(counts->len != fltr->srcncols)
     bad_link_line(path,line);
 
   // Use filter - append zeros first
@@ -519,7 +519,7 @@ void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph)
 {
   const char *path = file_filter_path(&file->fltr);
 
-  file_filter_status(&file->fltr);
+  file_filter_status(&file->fltr, false);
 
   size_t into_ncols = file_filter_into_ncols(&file->fltr);
 

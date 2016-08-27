@@ -82,7 +82,7 @@ int ctx_index(int argc, char **argv)
   memset(&gfile, 0, sizeof(GraphFileReader));
   graph_file_open2(&gfile, ctx_path, "r+", true, 0);
 
-  if(!file_filter_is_direct(&gfile.fltr))
+  if(!file_filter_from_direct(&gfile.fltr))
     die("Cannot open graph file with a filter ('in.ctx:blah' syntax)");
 
   // Open output file

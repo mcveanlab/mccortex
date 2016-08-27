@@ -33,7 +33,7 @@ void graph_loading_print_status(const GraphFileReader *file)
   const FileFilter *fltr = &file->fltr;
   char nkmers_str[100], filesize_str[100];
 
-  file_filter_status(fltr);
+  file_filter_status(fltr, false);
 
   if(isatty(fileno(file->fh))) status("  reading from a stream.");
   else {

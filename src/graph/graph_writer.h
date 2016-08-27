@@ -12,76 +12,49 @@
 
 // Construct graph header
 // Free with graph_header_free(hdr)
-GraphFileHeader* graph_writer_mkhdr(const dBGraph *db_graph, uint32_t version,
-                                    const Colour *colours, Colour start_col,
-                                    size_t ncols);
-
-/*!
-  Write kmers from the graph to a file. The file header should already have been
-  written.
-  @return Number of bytes written
- */
-size_t graph_write_empty(const dBGraph *db_graph, FILE *fh, size_t num_of_cols);
-
-/*!
-  Overwrite kmers in an existing file.
-  @param first_graphcol first colour in the dBGraph to read from
-  @param first_filecol first colour in the file to write into
-  @param ngraphcols Number of colours to write to file
-  @param nfilecols Total number of colours in file
-  @param mmap_ptr Memory mapped file pointer
-  @param hdrsize Size of file header i.e. byte pos of first kmer in file
- */
-void graph_writer_update_mmap_kmers(const dBGraph *db_graph,
-                                    size_t first_graphcol, size_t ngraphcols,
-                                    size_t first_filecol, size_t nfilecols,
-                                    char *mmap_ptr, size_t hdrsize);
-
-/*!
-  Overwrite kmers in an existing file.
-  @param first_graphcol  first colour in the dBGraph to read from
-  @param first_filecol   first colour in the file to write into
-  @param ngraphcols      number of colours to write to file
-  @param nfilecols       total number of colours in file
-  @param hdrsize         file header size i.e. byte pos of first kmer in file
-  @param fh              file handle opened that we can fwrite/fseek
-  @param path            path to the file (for error messages)
- */
-void graph_writer_update_file_kmers(const dBGraph *db_graph,
-                                    size_t first_graphcol, size_t ngraphcols,
-                                    size_t first_filecol, size_t nfilecols,
-                                    size_t hdrsize, FILE *fh, const char *path);
+GraphFileHeader* graph_writer_mkhdr(const dBGraph *db_graph,
+                                    const FileFilter *fltr,
+                                    size_t filencols);
 
 // Returns number of bytes written
-size_t graph_write_header(FILE *fh, const GraphFileHeader *header);
+size_t graph_write_header(FILE *fh, const GraphFileHeader *hdr);
 
-size_t graph_write_kmer(FILE *fh, size_t num_cols,
-                        const BinaryKmer bkmer, const Covg *covgs,
+// Write a single kmer with its edges and coverages for colours 0..ncols-1 to
+// 0..ncols-1 in the file. `covgs` and `edges` should be of length `filencols`.
+// Returns number of bytes written
+size_t graph_write_kmer(FILE *fh, size_t filencols,
+                        const BinaryKmer bkmer,
+                        const Covg *covgs,
                         const Edges *edges);
 
 // Dump all kmers with all colours to given file.
+// Do not use filters to re-arrange colours
 // `sort_kmer` if true, sort kmers before writing. Uses extra memory:
 //   requires sizeof(hkey_t) * num_kmers memory which it allocates and frees
 // Returns num of kmers written
-size_t graph_write_all_kmers(FILE *fh, const dBGraph *db_graph, bool sort_kmers);
+size_t graph_write_all_kmers_direct(FILE *fh, const dBGraph *db_graph,
+                                    bool sort_kmers, const GraphFileHeader *hdr);
 
-// If you don't want to/care about graph_info, pass in NULL
-// If you want to print all nodes pass condition as NULL
-// start_col is ignored unless colours is NULL
-// returns number of nodes dumped
-uint64_t graph_writer_save_mkhdr(const char *path, const dBGraph *graph,
-                                 bool sort_kmers,
-                                 const Colour *colours, Colour start_col,
-                                 size_t num_of_cols);
+// Dump all kmers with all colours to given file.
+// Filter kmers and re-arrange colours
+// `sort_kmer` if true, sort kmers before writing. Uses extra memory:
+//   requires sizeof(hkey_t) * num_kmers memory which it allocates and frees
+// Returns num of kmers written
+size_t graph_write_all_kmers_filtered(FILE *fh, const dBGraph *db_graph,
+                                      bool sort_kmers, const GraphFileHeader *hdr,
+                                      const FileFilter *fltr);
 
-// Pass your own header
-// Cannot specify both colours array and start_col
+// Pass your own header, ncols in file taken from the header
 // If sort_kmers is true, save kmers in lexigraphical order
 // returns number of nodes written out
 uint64_t graph_writer_save(const char *path, const dBGraph *db_graph,
-                           const GraphFileHeader *header, bool sort_kmers,
-                           size_t intocol, const Colour *colours,
-                           Colour start_col, size_t num_of_cols);
+                           const GraphFileHeader *hdr, bool sort_kmers,
+                           const FileFilter *fltr);
+
+// filencols must be <= db_graph->num_of_cols
+// returns number of nodes dumped
+uint64_t graph_writer_save_mkhdr(const char *path, const dBGraph *db_graph,
+                                 bool sort_kmers, size_t filencols);
 
 void graph_writer_print_status(uint64_t nkmers, size_t ncols,
                                const char *path, uint32_t version);
@@ -108,7 +81,8 @@ size_t graph_writer_merge(const char *out_ctx_path,
                           GraphFileReader *files, size_t num_files,
                           bool kmers_loaded, bool colours_loaded,
                           const Edges *only_load_if_in_edges,
-                          GraphFileHeader *hdr, dBGraph *db_graph);
+                          GraphFileHeader *hdr, bool sort_kmers,
+                          dBGraph *db_graph);
 
 // if intersect only load kmers that are already in the hash table
 // returns number of kmers written
@@ -116,6 +90,7 @@ size_t graph_writer_merge_mkhdr(const char *out_ctx_path,
                                 GraphFileReader *files, size_t num_files,
                                 bool kmers_loaded, bool colours_loaded,
                                 const Edges *only_load_if_in_edges,
-                                const char *intersect_gname, dBGraph *db_graph);
+                                const char *intersect_gname,
+                                bool sort_kmers, dBGraph *db_graph);
 
 #endif /* GRAPH_WRITER_H_ */

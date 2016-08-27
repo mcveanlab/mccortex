@@ -187,7 +187,7 @@ int ctx_view(int argc, char **argv)
   Covg covgs[ncols], keep_kmer;
   Edges edges[ncols];
 
-  bool direct_read = file_filter_is_direct(&gfile.fltr);
+  bool direct_read = file_filter_direct(&gfile.fltr);
 
   if(parse_kmers || print_kmers)
   {
