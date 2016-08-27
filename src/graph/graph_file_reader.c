@@ -177,15 +177,15 @@ size_t graph_file_read_header(GraphFileReader *file)
 
       _gfread(file, &(err_cleaning->cleaned_tips),
               sizeof(uint8_t), "tip cleaning");
-      _gfread(file, &(err_cleaning->cleaned_snodes),
+      _gfread(file, &(err_cleaning->cleaned_unitigs),
               sizeof(uint8_t), "remove low covg unitig");
       _gfread(file, &(err_cleaning->cleaned_kmers),
               sizeof(uint8_t), "remove low covg kmers");
       _gfread(file, &(err_cleaning->is_graph_intersection),
               sizeof(uint8_t), "cleaned against graph");
 
-      uint32_t clean_snodes_thresh = 0, clean_kmers_thresh = 0;
-      _gfread(file, &clean_snodes_thresh,
+      uint32_t clean_unitigs_thresh = 0, clean_kmers_thresh = 0;
+      _gfread(file, &clean_unitigs_thresh,
               sizeof(uint32_t), "remove low covg unitig threshold");
       _gfread(file, &clean_kmers_thresh,
               sizeof(uint32_t), "remove low covg kmer threshold");
@@ -194,18 +194,18 @@ size_t graph_file_read_header(GraphFileReader *file)
 
       // Fix for old versions with negative thresholds
       if(h->version <= 6) {
-        if(!err_cleaning->cleaned_snodes && clean_snodes_thresh == (uint32_t)-1)
-          clean_snodes_thresh = 0;
+        if(!err_cleaning->cleaned_unitigs && clean_unitigs_thresh == (uint32_t)-1)
+          clean_unitigs_thresh = 0;
         if(!err_cleaning->cleaned_kmers && clean_kmers_thresh == (uint32_t)-1)
           clean_kmers_thresh = 0;
       }
 
       // Sanity checks
-      if(!err_cleaning->cleaned_snodes && clean_snodes_thresh > 0)
+      if(!err_cleaning->cleaned_unitigs && clean_unitigs_thresh > 0)
       {
         warn("Graph header gives cleaning threshold for unitig "
              "when no cleaning was performed [path: %s]", path);
-        clean_snodes_thresh = 0;
+        clean_unitigs_thresh = 0;
       }
 
       if(!err_cleaning->cleaned_kmers && clean_kmers_thresh > 0)
@@ -215,7 +215,7 @@ size_t graph_file_read_header(GraphFileReader *file)
         clean_kmers_thresh = 0;
       }
 
-      err_cleaning->clean_snodes_thresh = clean_snodes_thresh;
+      err_cleaning->clean_unitigs_thresh = clean_unitigs_thresh;
       err_cleaning->clean_kmers_thresh = clean_kmers_thresh;
 
       // Read cleaned against name

@@ -34,17 +34,17 @@ static size_t write_error_cleaning_object(FILE *fh, const ErrorCleaning *cleanin
 {
   size_t written = 0, expwrite;
   written += fwrite(&(cleaning->cleaned_tips), 1, sizeof(uint8_t), fh);
-  written += fwrite(&(cleaning->cleaned_snodes), 1, sizeof(uint8_t), fh);
+  written += fwrite(&(cleaning->cleaned_unitigs), 1, sizeof(uint8_t), fh);
   written += fwrite(&(cleaning->cleaned_kmers), 1, sizeof(uint8_t), fh);
   written += fwrite(&(cleaning->is_graph_intersection), 1, sizeof(uint8_t), fh);
 
-  uint32_t clean_snodes_thresh
-    = cleaning->cleaned_snodes ? cleaning->clean_snodes_thresh : 0;
+  uint32_t clean_unitigs_thresh
+    = cleaning->cleaned_unitigs ? cleaning->clean_unitigs_thresh : 0;
 
   uint32_t clean_kmers_thresh
     = cleaning->cleaned_kmers ? cleaning->clean_kmers_thresh : 0;
 
-  written += fwrite(&clean_snodes_thresh, 1, sizeof(uint32_t), fh);
+  written += fwrite(&clean_unitigs_thresh, 1, sizeof(uint32_t), fh);
   written += fwrite(&clean_kmers_thresh, 1, sizeof(uint32_t), fh);
 
   uint32_t len = (uint32_t)cleaning->intersection_name.end;

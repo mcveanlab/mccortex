@@ -208,16 +208,16 @@ void json_hdr_make_std(cJSON *json, const char *path,
   size_t i;
   for(i = 0; i < db_graph->num_of_cols; i++)
   {
-    bool cleaned_snodes = db_graph->ginfo[i].cleaning.cleaned_snodes;
+    bool cleaned_unitigs = db_graph->ginfo[i].cleaning.cleaned_unitigs;
     bool cleaned_tips   = db_graph->ginfo[i].cleaning.cleaned_tips;
     cJSON *sample = cJSON_CreateObject();
     cJSON_AddNumberToObject(sample, "colour", i);
     cJSON_AddStringToObject(sample, "sample", db_graph->ginfo[i].sample_name.b);
     cJSON_AddNumberToObject(sample, "total_sequence", db_graph->ginfo[i].total_sequence);
     cJSON_AddBoolToObject(sample, "cleaned_tips", cleaned_tips);
-    if(cleaned_snodes) {
+    if(cleaned_unitigs) {
       cJSON_AddNumberToObject(sample, "cleaned_unitigs",
-                              db_graph->ginfo[i].cleaning.clean_snodes_thresh);
+                              db_graph->ginfo[i].cleaning.clean_unitigs_thresh);
     } else {
       cJSON_AddBoolToObject(sample, "cleaned_unitigs", false);
     }

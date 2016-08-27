@@ -13,7 +13,7 @@ typedef struct
   const dBGraph *const db_graph; // graph we are operating on
   uint8_t *const kmer_mask; // bitset of visited kmers
   const bool grab_unitigs; // grab entire unitigs or just kmers
-  dBNodeBuffer nbufs[2], snode_buf;
+  dBNodeBuffer nbufs[2], unitig_buf;
   SeqLoadingStats stats;
 } SubgraphBuilder;
 
@@ -30,7 +30,7 @@ static void subgraph_builder_alloc(SubgraphBuilder *builder,
   memcpy(builder, &tmp, sizeof(SubgraphBuilder));
   db_node_buf_alloc(&builder->nbufs[0], num_fringe_nodes);
   db_node_buf_alloc(&builder->nbufs[1], num_fringe_nodes);
-  db_node_buf_alloc(&builder->snode_buf, 128);
+  db_node_buf_alloc(&builder->unitig_buf, 128);
   seq_loading_stats_init(&builder->stats);
 }
 
@@ -38,7 +38,7 @@ static void subgraph_builder_dealloc(SubgraphBuilder *builder)
 {
   db_node_buf_dealloc(&builder->nbufs[0]);
   db_node_buf_dealloc(&builder->nbufs[1]);
-  db_node_buf_dealloc(&builder->snode_buf);
+  db_node_buf_dealloc(&builder->unitig_buf);
 }
 
 // Mark all kmers touched by a read, if they already exist in the graph
@@ -64,8 +64,8 @@ static void mark_bkmer(BinaryKmer bkmer, dBNodeBuffer *nbuf,
 }
 
 // Mark entire unitigs that are touched by a read
-static inline void mark_snode(BinaryKmer bkmer,
-                              dBNodeBuffer *nbuf, dBNodeBuffer *snode_buf,
+static inline void mark_unitig(BinaryKmer bkmer,
+                              dBNodeBuffer *nbuf, dBNodeBuffer *unitig_buf,
                               uint8_t *kmer_mask, const dBGraph *db_graph)
 {
   dBNode node = db_graph_find(db_graph, bkmer);
@@ -73,14 +73,14 @@ static inline void mark_snode(BinaryKmer bkmer,
 
   if(node.key != HASH_NOT_FOUND && !bitset_get(kmer_mask, node.key))
   {
-    db_node_buf_reset(snode_buf);
-    db_unitig_fetch(node.key, snode_buf, db_graph);
+    db_node_buf_reset(unitig_buf);
+    db_unitig_fetch(node.key, unitig_buf, db_graph);
 
-    for(i = 0; i < snode_buf->len; i++) {
-      bitset_set(kmer_mask, snode_buf->b[i].key);
+    for(i = 0; i < unitig_buf->len; i++) {
+      bitset_set(kmer_mask, unitig_buf->b[i].key);
       // push_try return index of item or -1 on failure
       if(nbuf->size > 0 &&
-         db_node_buf_push_try(nbuf, &snode_buf->b[i], 1) < 0) {
+         db_node_buf_push_try(nbuf, &unitig_buf->b[i], 1) < 0) {
         die("Please increase <mem> size");
       }
     }
@@ -96,12 +96,12 @@ static void store_read_nodes(read_t *r1, read_t *r2,
 
   if(builder->grab_unitigs)
   {
-    READ_TO_BKMERS(r1, db_graph->kmer_size, 0, 0, &builder->stats, mark_snode,
-                   &builder->nbufs[0], &builder->snode_buf,
+    READ_TO_BKMERS(r1, db_graph->kmer_size, 0, 0, &builder->stats, mark_unitig,
+                   &builder->nbufs[0], &builder->unitig_buf,
                    builder->kmer_mask, db_graph);
     if(r2 != NULL) {
-      READ_TO_BKMERS(r2, db_graph->kmer_size, 0, 0, &builder->stats, mark_snode,
-                     &builder->nbufs[0], &builder->snode_buf,
+      READ_TO_BKMERS(r2, db_graph->kmer_size, 0, 0, &builder->stats, mark_unitig,
+                     &builder->nbufs[0], &builder->unitig_buf,
                      builder->kmer_mask, db_graph);
     }
   }

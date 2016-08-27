@@ -263,10 +263,10 @@ int ctx_clean(int argc, char **argv)
     for(j = 0; j < file_filter_num(&gfiles[i].fltr); j++) {
       fromcol = file_filter_fromcol(&gfiles[i].fltr, j);
       cleaning = &gfiles[i].hdr.ginfo[fromcol].cleaning;
-      if(cleaning->cleaned_snodes && unitig_cleaning) {
+      if(cleaning->cleaned_unitigs && unitig_cleaning) {
         warn("%s:%zu already has unitig cleaning with threshold: <%zu",
              file_filter_path(&gfiles[i].fltr), fromcol,
-             (size_t)cleaning->clean_snodes_thresh);
+             (size_t)cleaning->clean_unitigs_thresh);
       }
       if(cleaning->cleaned_tips && tip_cleaning) {
         warn("%s:%zu already has had tip cleaned",
@@ -423,7 +423,7 @@ int ctx_clean(int argc, char **argv)
     for(col = 0; col < using_ncols; col++)
     {
       cleaning = &outhdr.ginfo[col].cleaning;
-      cleaning->cleaned_snodes |= unitig_cleaning;
+      cleaning->cleaned_unitigs |= unitig_cleaning;
       cleaning->cleaned_tips |= tip_cleaning;
 
       // if(tip_cleaning) {
@@ -431,10 +431,10 @@ int ctx_clean(int argc, char **argv)
       // }
 
       if(unitig_cleaning) {
-        size_t thresh = cleaning->clean_snodes_thresh;
-        thresh = cleaning->cleaned_snodes ? MAX2(thresh, (uint32_t)unitig_min)
+        size_t thresh = cleaning->clean_unitigs_thresh;
+        thresh = cleaning->cleaned_unitigs ? MAX2(thresh, (uint32_t)unitig_min)
                                           : (uint32_t)unitig_min;
-        cleaning->clean_snodes_thresh = thresh;
+        cleaning->clean_unitigs_thresh = thresh;
 
         // char name_append[200];
         // sprintf(name_append, ".supclean%zu", thresh);

@@ -633,7 +633,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
  * (can actually be any node up until the end of the current unitig)
  * @param num_nodes is number of nodes we have moved forward
  */
-void graph_walker_jump_along_snode(GraphWalker *wlk, dBNode node, size_t num_nodes)
+void graph_walker_jump_along_unitig(GraphWalker *wlk, dBNode node, size_t num_nodes)
 {
   ctx_assert(num_nodes > 0);
 
