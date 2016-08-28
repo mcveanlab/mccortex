@@ -16,7 +16,9 @@
 const char inferedges_usage[] =
 "usage: "CMD" inferedges [options] <pop.ctx>\n"
 "\n"
-"  Infer edges in a population graph.  By default adds all missing edges (--all).\n"
+"  Infer edges adds edges between all kmers that share k-1 bases.\n"
+"  By default adds all missing edges (--all). To add only edges that exist in\n"
+"  at least one other sample in the population, use --pop.\n"
 "  It is important that you run this step before doing read threading.\n"
 "\n"
 "  -h, --help            This help message\n"
@@ -93,8 +95,7 @@ static size_t inferedges_on_mmap(const dBGraph *db_graph, bool add_all_edges,
     memcpy(covgs,   fh_covgs, ncols * sizeof(Covg));
     memcpy(edges,   fh_edges, ncols * sizeof(Edges));
 
-    updated = (add_all_edges ? infer_all_edges(bkmer, edges, covgs, db_graph)
-                             : infer_pop_edges(bkmer, edges, covgs, db_graph));
+    updated = infer_kmer_edges(bkmer, !add_all_edges, edges, covgs, db_graph);
 
     if(updated) {
       memcpy(fh_covgs, covgs, ncols * sizeof(Covg));
@@ -139,9 +140,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
 
   while(graph_file_read_reset(file, &bkmer, covgs, edges))
   {
-    updated = (add_all_edges ? infer_all_edges(bkmer, edges, covgs, db_graph)
-                             : infer_pop_edges(bkmer, edges, covgs, db_graph));
-
+    updated = infer_kmer_edges(bkmer, !add_all_edges, edges, covgs, db_graph);
     graph_write_kmer(fout, file_ncols, bkmer, covgs, edges);
 
     num_kmers_edited += updated;

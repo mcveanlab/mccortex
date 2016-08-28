@@ -26,31 +26,29 @@ static inline void _add_edge_to_colours(hkey_t next_hkey,
   }
 }
 
-// If two kmers are in a sample and the population has an edges between them,
-// Add edge to sample
-
+// `pop_edges` if true, only add edges that are in at least one other colour
+//  -> If two kmers are in a sample and the population has an edges between
+//     them, add edge to sample.
 // Return 1 if changed; 0 otherwise
-bool infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
-                     const Covg *covgs, const dBGraph *db_graph)
+bool infer_kmer_edges(const BinaryKmer node_bkey, bool pop_edges,
+                      Edges *edges, const Covg *covgs,
+                      const dBGraph *db_graph)
 {
   Edges uedges = 0, iedges = 0xf, add_edges, edge;
   size_t orient, nuc, col, kmer_size = db_graph->kmer_size;
   const size_t ncols = db_graph->num_of_cols;
   BinaryKmer bkey, bkmer;
   hkey_t next;
+
   Edges newedges[ncols];
   memcpy(newedges, edges, ncols * sizeof(Edges));
-
-  // char tmp[MAX_KMER_SIZE+1];
-  // binary_kmer_to_str(node_bkey, db_graph->kmer_size, tmp);
-  // status("Inferring %s", tmp);
 
   for(col = 0; col < ncols; col++) {
     uedges |= edges[col]; // union of edges
     iedges &= edges[col]; // intersection of edges
   }
 
-  add_edges = uedges & ~iedges;
+  add_edges = pop_edges ? uedges & ~iedges : ~iedges;
 
   if(!add_edges) return 0;
 
@@ -62,51 +60,7 @@ bool infer_pop_edges(const BinaryKmer node_bkey, Edges *edges,
     for(nuc = 0; nuc < 4; nuc++)
     {
       edge = nuc_orient_to_edge(nuc, orient);
-      if(add_edges & edge)
-      {
-        // get next bkmer, look up in graph
-        if(orient == FORWARD) binary_kmer_set_last_nuc(&bkmer, nuc);
-        else binary_kmer_set_first_nuc(&bkmer, dna_nuc_complement(nuc), kmer_size);
-
-        bkey = binary_kmer_get_key(bkmer, kmer_size);
-        next = hash_table_find(&db_graph->ht, bkey);
-        ctx_assert(next != HASH_NOT_FOUND);
-
-        _add_edge_to_colours(next, covgs, newedges, edge, db_graph);
-      }
-    }
-  }
-
-  int cmp = memcmp(edges, newedges, sizeof(Edges)*ncols);
-  memcpy(edges, newedges, sizeof(Edges)*ncols);
-  return (cmp != 0);
-}
-
-// Return 1 if changed; 0 otherwise
-bool infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
-                     const Covg *covgs, const dBGraph *db_graph)
-{
-  Edges iedges = 0xff, edge;
-  size_t orient, nuc, col, kmer_size = db_graph->kmer_size;
-  const size_t ncols = db_graph->num_of_cols;
-  BinaryKmer bkey, bkmer;
-  hkey_t next;
-
-  Edges newedges[ncols];
-  memcpy(newedges, edges, ncols * sizeof(Edges));
-
-  // intersection of edges
-  for(col = 0; col < ncols; col++) iedges &= edges[col];
-
-  for(orient = 0; orient < 2; orient++)
-  {
-    bkmer = (orient == FORWARD ? binary_kmer_left_shift_one_base(node_bkey, kmer_size)
-                               : binary_kmer_right_shift_one_base(node_bkey));
-
-    for(nuc = 0; nuc < 4; nuc++)
-    {
-      edge = nuc_orient_to_edge(nuc, orient);
-      if(!(iedges & edge))
+      if(edge & add_edges)
       {
         // edges are missing from some samples
         if(orient == FORWARD) binary_kmer_set_last_nuc(&bkmer, nuc);
@@ -114,6 +68,7 @@ bool infer_all_edges(const BinaryKmer node_bkey, Edges *edges,
 
         bkey = binary_kmer_get_key(bkmer, kmer_size);
         next = hash_table_find(&db_graph->ht, bkey);
+        ctx_assert(!pop_edges || next != HASH_NOT_FOUND);
 
         if(next != HASH_NOT_FOUND) {
           _add_edge_to_colours(next, covgs, newedges, edge, db_graph);
@@ -146,9 +101,8 @@ static inline int infer_edges_node(hkey_t hkey,
     tmp_covgs = &db_node_covg(db_graph, hkey, 0);
   }
 
-  (*num_nodes_modified)
-    += (add_all_edges ? infer_all_edges(bkmer, edges, tmp_covgs, db_graph)
-                      : infer_pop_edges(bkmer, edges, tmp_covgs, db_graph));
+  (*num_nodes_modified) += infer_kmer_edges(bkmer, !add_all_edges,
+                                            edges, tmp_covgs, db_graph);
 
   return 0; // => keep iterating
 }
