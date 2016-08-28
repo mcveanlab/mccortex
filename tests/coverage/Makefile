@@ -16,13 +16,13 @@ clean:
 	$(DNACAT) -F -n 50 > $@
 
 seq.k$(K).ctx: seq.fa
-	$(MCCORTEX) build -k $(K) --sample Wallace \
-	                          --sample Gromit --seq seq.fa \
-	                          --sample Trousers --seq seq.fa --seq2 seq.fa:seq.fa $@
-	$(MCCORTEX) view --kmers $@
+	$(MCCORTEX) build -q -k $(K) --sample Wallace \
+	                             --sample Gromit --seq seq.fa \
+	                             --sample Trousers --seq seq.fa --seq2 seq.fa:seq.fa $@
+	$(MCCORTEX) view -qk $@
 
 coverage.txt: seq.k$(K).ctx rnd.fa
-	$(MCCORTEX) coverage --seq rnd.fa -1 seq.fa seq.k$(K).ctx > coverage.txt
+	$(MCCORTEX) coverage -q --seq rnd.fa -1 seq.fa seq.k$(K).ctx > coverage.txt
 	cat coverage.txt
 
 .PHONY: all clean

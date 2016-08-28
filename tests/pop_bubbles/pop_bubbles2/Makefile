@@ -23,13 +23,14 @@ clean2.fa:
 		echo ATAACTTCTCCAAACCAGGTTCATGACAGCCAACCAA; ) > $@
 
 truth.ctx: sample1.ctx sample2.ctx clean2.fa
-	$(MCCORTEX) build -k $(K) -s clean2 -1 clean2.fa - | $(MCCORTEX) join -o $@ 0:sample1.ctx 1:-
+	$(MCCORTEX) build -q -k $(K) -s clean2 -1 clean2.fa - | \
+	$(MCCORTEX) join -q -o $@ 0:sample1.ctx 1:-
 
 %.ctx: %.fa
-	$(MCCORTEX) build -k $(K) --sample $* --seq $< $@
+	$(MCCORTEX) build -q -k $(K) --sample $* --seq $< $@
 
 popped.ctx: sample1.ctx sample2.ctx
-	$(MCCORTEX) popbubbles --out $@ $^
+	$(MCCORTEX) popbubbles --out -q $@ $^
 
 check: popped.ctx truth.ctx
 	diff -q <($(MCCORTEX) view -q -k popped.ctx | sort) <($(MCCORTEX) view -q -k truth.ctx | sort) && \
