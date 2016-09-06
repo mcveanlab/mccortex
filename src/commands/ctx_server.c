@@ -21,7 +21,7 @@ const char server_usage[] =
 "  -q, --quiet           Silence status output normally printed to STDERR\n"
 "  -m, --memory <mem>    Memory to use\n"
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -p, --paths <in.ctp>  Load path file (can specify multiple times)\n"
+"  -p, --paths <in.ctp>  Load link file (can specify multiple times)\n"
 "  -S, --single-line     Reponses on a single line\n"
 "  -C, --coverages       Load per sample coverages\n"
 "  -E, --edges           Load per sample edges\n"
@@ -346,7 +346,7 @@ int ctx_server(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  // Load path files
+  // Load link files
   for(i = 0; i < gpfiles.len; i++)
     gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
@@ -358,7 +358,7 @@ int ctx_server(int argc, char **argv)
   char *info_txt = make_info_json_str(hdrs, gpfiles.len, pretty, &db_graph);
   ctx_free(hdrs);
 
-  // Close input path files
+  // Close input link files
   for(i = 0; i < gpfiles.len; i++)
     gpath_reader_close(&gpfiles.b[i]);
   gpfile_buf_dealloc(&gpfiles);

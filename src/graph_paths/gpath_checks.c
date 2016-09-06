@@ -17,7 +17,7 @@ static int _col_sample_cmp(const void *aa, const void *bb)
 }
 
 /**
- * Check we are only loading path files into the given colour. Calls die()
+ * Check we are only loading link files into the given colour. Calls die()
  * with error message on failure.
  */
 void gpaths_only_for_colour(const GPathReader *gpfiles, size_t num_gpfiles,
@@ -25,7 +25,7 @@ void gpaths_only_for_colour(const GPathReader *gpfiles, size_t num_gpfiles,
 {
   size_t i;
 
-  // Check each path file only loads one colour
+  // Check each link file only loads one colour
   for(i = 0; i < num_gpfiles; i++) {
     if(file_filter_num(&gpfiles[i].fltr) > 1 ||
        file_filter_intocol(&gpfiles[i].fltr, 0) != colour)
@@ -51,7 +51,7 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 
   if(num_graphs) kmer_size = graphs[0].hdr.kmer_size;
   else if(num_gpaths) kmer_size = gpath_reader_get_kmer_size(&gpaths[0]);
-  else return; // no graph or path files
+  else return; // no graph or link files
 
   for(g = 0; g < num_graphs; g++) {
     kmer_size2 = graphs[g].hdr.kmer_size;
@@ -80,12 +80,12 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 
   // ctx_max_kmers may be zero if reading from a stream
   if(ctx_max_kmers > 0 && ctp_max_kmers > ctx_max_kmers) {
-    die("More kmers in path files than in graph files! (%zu > %zu)",
+    die("More kmers in link files than in graph files! (%zu > %zu)",
         (size_t)ctp_max_kmers, (size_t)ctx_max_kmers);
   }
 
   if(num_graphs > 0 && ctp_max_cols > ctx_max_cols) {
-    die("More colours in path files than in graph files! (%zu > %zu)",
+    die("More colours in link files than in graph files! (%zu > %zu)",
         ctp_max_cols, ctx_max_cols);
   }
 
@@ -137,7 +137,7 @@ void graphs_gpaths_compatible(const GraphFileReader *graphs, size_t num_graphs,
 }
 
 /*!
-  Update colours in graph files and path files - sample in 0, all others in 1
+  Update colours in graph files and link files - sample in 0, all others in 1
   @return number of colours to load (1 or 2: sample + [population optional])
  */
 size_t gpath_load_sample_pop(GraphFileReader *gfiles, size_t num_gfiles,
@@ -166,7 +166,7 @@ size_t gpath_load_sample_pop(GraphFileReader *gfiles, size_t num_gfiles,
   if(!tgt_col_loaded)
     die("You didn't load any colours into --colour %zu", colour);
 
-  // Update path files
+  // Update link files
   for(p = 0; p < num_gpfiles; p++) {
     fltr = &gpfiles[p].fltr;
     for(i = j = 0; i < file_filter_num(fltr); i++) {
@@ -180,7 +180,7 @@ size_t gpath_load_sample_pop(GraphFileReader *gfiles, size_t num_gfiles,
     file_filter_update(fltr);
 
     if(j == 0) {
-      die("Path file does not provide any paths in colour %zu: %s",
+      die("link file does not provide any paths in colour %zu: %s",
           colour, file_filter_input(fltr));
     }
   }

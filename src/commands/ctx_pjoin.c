@@ -11,7 +11,7 @@
 const char pjoin_usage[] =
 "usage: "CMD" pjoin [options] <in1.ctp.gz> [[offset:]in2.ctp[:0,2-4] ...]\n"
 "\n"
-"  Merge cortex path files.\n"
+"  Merge cortex link files.\n"
 "\n"
 "  -h, --help             This help message\n"
 "  -q, --quiet            Silence status output normally printed to STDERR\n"
@@ -95,7 +95,7 @@ int ctx_pjoin(int argc, char **argv)
   char **paths = argv + optind;
 
   //
-  // Open all path files
+  // Open all link files
   //
   size_t i, j;
   size_t ctp_max_cols = 0;
@@ -135,7 +135,7 @@ int ctx_pjoin(int argc, char **argv)
     ctp_sum_kmers = MIN2(ctp_sum_kmers, graph_file_nkmers(&gfile));
   }
 
-  // Check for compatibility between graph files and path files
+  // Check for compatibility between graph files and link files
   graphs_gpaths_compatible(&gfile, graph_file ? 1 : 0, pfiles, num_pfiles, -1);
 
   // Done with the graph file now
@@ -214,7 +214,7 @@ int ctx_pjoin(int argc, char **argv)
     }
   }
 
-  // Load path files
+  // Load link files
   for(i = 0; i < num_pfiles; i++)
     gpath_reader_load(&pfiles[i], GPATH_ADD_MISSING_KMERS, &db_graph);
 

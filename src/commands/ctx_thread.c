@@ -23,7 +23,7 @@ const char thread_usage[] =
 "  -m, --memory <mem>       Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>         Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>        Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
-"  -p, --paths <in.ctp>     Load path file (can specify multiple times)\n"
+"  -p, --paths <in.ctp>     Load link file (can specify multiple times)\n"
 "  -0, --zero-paths         Zero counts on initially loaded paths. Use if existing\n"
 "                           paths were built from sequence being re-used by this run\n"
 "\n"
@@ -113,7 +113,7 @@ int ctx_thread(int argc, char **argv)
   if(args.zero_link_counts && gpfiles->len == 0)
     cmd_print_usage("-0,--zero-paths without -p,--paths <in.ctp> has no meaning");
 
-  // Check each path file only loads one colour
+  // Check each link file only loads one colour
   gpaths_only_for_colour(gpfiles->b, gpfiles->len, 0);
 
   //

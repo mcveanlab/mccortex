@@ -382,7 +382,7 @@ uint8_t db_graph_prev_nodes_with_mask(const dBGraph *db_graph, dBNode node,
 //
 
 // Check kmer size of a file
-// Used when loading graph and path files
+// Used when loading graph and link files
 void db_graph_check_kmer_size(size_t kmer_size, const char *path)
 {
   const size_t mink = MIN_KMER_SIZE, maxk = MAX_KMER_SIZE;

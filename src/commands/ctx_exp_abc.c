@@ -23,7 +23,7 @@ const char exp_abc_usage[] =
 "  -f, --force             Overwrite output files\n"
 "  -m, --memory <mem>      Memory to use\n"
 "  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -p, --paths <in.ctp>    Load path file (can specify multiple times)\n"
+"  -p, --paths <in.ctp>    Load link file (can specify multiple times)\n"
 "  -N, --repeat <N>        Sample N kmers (Default "QUOTE_MACRO(DEFAULT_NUM_REPEATS)")\n"
 "  -M, --max-AB-dist <M>   Max A->B contig (Default "QUOTE_MACRO(DEFAULT_MAX_AB_DIST)")\n"
 "  -P, --print             Print failed contigs\n"
@@ -441,7 +441,7 @@ int ctx_exp_abc(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  // Load path files
+  // Load link files
   for(i = 0; i < gpfiles.len; i++) {
     gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
     gpath_reader_close(&gpfiles.b[i]);

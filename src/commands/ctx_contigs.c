@@ -22,7 +22,7 @@ const char contigs_usage[] =
 "  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -o, --out <out.fa>    Print contigs in FASTA [default: don't print]\n"
 "  -c, --colour <c>      Pull out contigs from the given colour [default: 0]\n"
-"  -p, --paths <in.ctp>  Load path file (can specify multiple times)\n"
+"  -p, --paths <in.ctp>  Load link file (can specify multiple times)\n"
 "  -N, --ncontigs <N>    Pull out <N> contigs from random kmers [default: 0, no limit]\n"
 "  -s, --seed <in.fa>    Use seed kmers from a file. Reads must be of kmer length\n"
 "  -r, --reseed          Sample seed kmers with replacement\n"
@@ -177,7 +177,7 @@ int ctx_contigs(int argc, char **argv)
   ncols = gpath_load_sample_pop(gfiles, num_gfiles,
                                 gpfiles.b, gpfiles.len, colour);
 
-  // Check for compatibility between graph files and path files
+  // Check for compatibility between graph files and link files
   // pop_colour is colour 1
   graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.b, gpfiles.len, 1);
 
@@ -275,7 +275,7 @@ int ctx_contigs(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  // Load path files
+  // Load link files
   for(i = 0; i < gpfiles.len; i++) {
     gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
     gpath_reader_close(&gpfiles.b[i]);

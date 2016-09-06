@@ -43,7 +43,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "pview", .func = ctx_pview, .hide = false,
-  .blurb = "text view of a cortex path file (.ctp)",
+  .blurb = "text view of a cortex link file (.ctp)",
   .usage = pview_usage
 },
 {
@@ -98,7 +98,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "pjoin", .func = ctx_pjoin, .hide = false,
-  .blurb = "merge path files (.ctp)",
+  .blurb = "merge link files (.ctp)",
   .usage = pjoin_usage
 },
 {

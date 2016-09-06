@@ -21,7 +21,7 @@ const char correct_usage[] =
 "  -m, --memory <mem>       Memory to use (e.g. 1M, 20GB)\n"
 "  -n, --nkmers <N>         Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>        Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
-"  -p, --paths <in.ctp>     Load path file (can specify multiple times)\n"
+"  -p, --paths <in.ctp>     Load link file (can specify multiple times)\n"
 "\n"
 "  Input:\n"
 "  -1, --seq <in:out>       Correct reads (output: <out>.fa.gz)\n"
@@ -117,7 +117,7 @@ int ctx_correct(int argc, char **argv)
   size_t ncols = gpath_load_sample_pop(gfile, 1, gpfiles->b, gpfiles->len,
                                        args.colour);
 
-  // Check for compatibility between graph files and path files
+  // Check for compatibility between graph files and link files
   graphs_gpaths_compatible(gfile, 1, gpfiles->b, gpfiles->len, 1);
 
   int64_t ctx_num_kmers = gfile->num_of_kmers;
@@ -190,7 +190,7 @@ int ctx_correct(int argc, char **argv)
   gpath_reader_alloc_gpstore(gpfiles->b, gpfiles->len, path_mem, false, &db_graph);
 
   //
-  // Load Graph and Path files
+  // Load Graph and link files
   //
   GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);
   gprefs.empty_colours = true;
@@ -200,7 +200,7 @@ int ctx_correct(int argc, char **argv)
   hash_table_print_stats_brief(&db_graph.ht);
   graph_file_close(gfile);
 
-  // Load path files
+  // Load link files
   for(i = 0; i < gpfiles->len; i++) {
     gpath_reader_load(&gpfiles->b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
     gpath_reader_close(&gpfiles->b[i]);

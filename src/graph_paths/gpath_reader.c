@@ -223,12 +223,12 @@ void gpath_reader_check(const GPathReader *file, size_t db_kmer_size,
 {
   size_t kmer_size = gpath_reader_get_kmer_size(file);
   if(kmer_size != db_kmer_size) {
-    die("Path file kmer size doesn't match [path: %s kmer: %zu, graph-kmer: %zu]",
+    die("Link file kmer size doesn't match [path: %s kmer: %zu, graph-kmer: %zu]",
         file->fltr.path.b, kmer_size, db_kmer_size);
   }
   size_t used_ncols = file_filter_into_ncols(&file->fltr);
   if(used_ncols > db_ncols) {
-    die("Path file requires at least %zu colours [path: %s, curr colours: %zu]",
+    die("Link file requires at least %zu colours [path: %s, curr colours: %zu]",
         used_ncols, file->fltr.input.b, db_ncols);
   }
 }
