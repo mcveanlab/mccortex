@@ -1,12 +1,5 @@
 SHELL=/bin/bash -euo pipefail
 
-CTXDIR=../../..
-MCCORTEX31=$(CTXDIR)/bin/mccortex31
-VCFENTRIES=$(CTXDIR)/libs/biogrok/vcf-entries
-
-REF=../ref/ref.fa
-K=21
-
 #
 # Test two samples on several overlapping variants
 #
@@ -27,19 +20,26 @@ K=21
 
 # ref:80C>T num kmers => 85-80=5, k=21, 5+(k-5)*2 = 37, mean cov = (5*2+35*1)/37 = 1.21
 
+K=21
+CTXDIR=../../..
+MCCORTEX=$(CTXDIR)/bin/mccortex $(K)
+VCFENTRIES=$(CTXDIR)/libs/biogrok/vcf-entries
+
+REF=../ref/ref.fa
+
 all: test
 
 clean:
 	rm -rf calls.cov.vcf* lowmem.cov.vcf* laurel.k$(K).ctx hardy.k$(K).ctx
 
 %.k$(K).ctx: %.fa
-	$(MCCORTEX31) build -m 10M -k $(K) --sample $* --seq $< $@ >& $@.log
+	$(MCCORTEX) build -m 10M -k $(K) --sample $* --seq $< $@ >& $@.log
 
 calls.cov.vcf: calls.vcf $(REF) laurel.k$(K).ctx hardy.k$(K).ctx
-	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 4 --max-var-len 20 $< laurel.k$(K).ctx hardy.k$(K).ctx >& $@.log
+	$(MCCORTEX) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 4 --max-var-len 20 --high-mem $< laurel.k$(K).ctx hardy.k$(K).ctx >& $@.log
 
 lowmem.cov.vcf: calls.vcf $(REF) laurel.k$(K).ctx hardy.k$(K).ctx
-	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 4 --max-var-len 20 --low-mem $< laurel.k$(K).ctx hardy.k$(K).ctx >& $@.log
+	$(MCCORTEX) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 4 --max-var-len 20 --low-mem $< laurel.k$(K).ctx hardy.k$(K).ctx >& $@.log
 
 test: calls.cov.vcf lowmem.cov.vcf truth.cov.vcf
 	diff -q <($(VCFENTRIES) calls.cov.vcf) <($(VCFENTRIES) truth.cov.vcf)

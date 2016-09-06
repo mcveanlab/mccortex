@@ -1,16 +1,16 @@
 SHELL=/bin/bash -euo pipefail
 
-CTXDIR=../../..
-MCCORTEX31=$(CTXDIR)/bin/mccortex31
-VCFENTRIES=$(CTXDIR)/libs/biogrok/vcf-entries
-
-REF=../ref/ref.fa
-K=11
-
 #
 # Test that large indels are used and the variants they overlap are not grouped
 # with them to stop genotyping of near by variants
 #
+
+K=11
+CTXDIR=../../..
+MCCORTEX=$(CTXDIR)/bin/mccortex $(K)
+VCFENTRIES=$(CTXDIR)/libs/biogrok/vcf-entries
+
+REF=../ref/ref.fa
 
 all: test
 
@@ -22,14 +22,14 @@ clean:
 	rm -rf calls.cov.vcf* lowmem.cov.vcf* wally.k$(K).ctx alt.fa
 
 %.k$(K).ctx: $(REF) alt.fa
-	$(MCCORTEX31) build -m 10M -k $(K) --sample $* -1 $(REF) -1 $(REF) -1 alt.fa -1 alt.fa  $@ >& $@.log
+	$(MCCORTEX) build -m 10M -k $(K) --sample $* -1 $(REF) -1 $(REF) -1 alt.fa -1 alt.fa  $@ >& $@.log
 
 calls.cov.vcf.log: calls.cov.vcf
 calls.cov.vcf: calls.vcf $(REF) wally.k$(K).ctx
-	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 5 $< wally.k$(K).ctx >& $@.log
+	$(MCCORTEX) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 5 --high-mem $< wally.k$(K).ctx >& $@.log
 
 lowmem.cov.vcf: calls.vcf $(REF) wally.k$(K).ctx
-	$(MCCORTEX31) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 5 --low-mem $< wally.k$(K).ctx >& $@.log
+	$(MCCORTEX) vcfcov -m 10M -o $@ -r $(REF) --max-nvars 5 --low-mem $< wally.k$(K).ctx >& $@.log
 
 test: calls.cov.vcf lowmem.cov.vcf truth.cov.vcf calls.cov.vcf.log
 	diff -q <($(VCFENTRIES) calls.cov.vcf) <($(VCFENTRIES) truth.cov.vcf)

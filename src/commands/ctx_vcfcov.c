@@ -30,7 +30,8 @@ const char vcfcov_usage[] =
 "  -r, --ref <ref.fa>     Reference file [required]\n"
 "  -L, --max-var-len <A>  Only use alleles <= A bases long [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE_LEN)"]\n"
 "  -N, --max-nvars <N>    Limit haplotypes to <= N variants [default: "QUOTE_VALUE(DEFAULT_MAX_GT_VARS)"]\n"
-"  -M, --low-mem          Two-passes of VCF to only load needed kmers\n"
+"  -M, --low-mem          Two-passes of VCF to only load needed kmers [default]\n"
+"  -H, --high-mem         One-pass of VCF, all kmers loaded (when streaming VCF)\n"
 "\n";
 
 static struct option longopts[] =
@@ -46,6 +47,7 @@ static struct option longopts[] =
   {"max-var-len",  required_argument, NULL, 'L'},
   {"max-nvars",    required_argument, NULL, 'N'},
   {"low-mem",      no_argument,       NULL, 'M'},
+  {"high-mem",     no_argument,       NULL, 'H'},
   {NULL, 0, NULL, 0}
 };
 
@@ -58,7 +60,7 @@ int ctx_vcfcov(int argc, char **argv)
 
   uint32_t max_allele_len = 0, max_gt_vars = 0;
   char *ref_path = NULL;
-  bool low_mem = false;
+  bool use_lowmem = false, use_himem = false;
 
   // Arg parsing
   char cmd[100];
@@ -83,7 +85,8 @@ int ctx_vcfcov(int argc, char **argv)
       case 'r': cmd_check(!ref_path, cmd); ref_path = optarg; break;
       case 'L': cmd_check(!max_allele_len,cmd); max_allele_len = cmd_uint32(cmd,optarg); break;
       case 'N': cmd_check(!max_gt_vars,cmd); max_gt_vars = cmd_uint32(cmd,optarg); break;
-      case 'M': cmd_check(!low_mem, cmd); low_mem = true; break;
+      case 'M': cmd_check(!use_lowmem, cmd); use_lowmem = true; break;
+      case 'H': cmd_check(!use_himem, cmd); use_himem = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -96,6 +99,9 @@ int ctx_vcfcov(int argc, char **argv)
   if(out_path == NULL) out_path = "-";
   if(ref_path == NULL) cmd_print_usage("Require a reference (-r,--ref <ref.fa>)");
   if(optind+2 > argc) cmd_print_usage("Require VCF and graph files");
+
+  if(use_lowmem && use_himem)
+    cmd_print_usage("Cannot use --low-mem and --high-mem together!");
 
   if(!max_allele_len) max_allele_len = DEFAULT_MAX_ALLELE_LEN;
   if(!max_gt_vars) max_gt_vars = DEFAULT_MAX_GT_VARS;
@@ -115,8 +121,14 @@ int ctx_vcfcov(int argc, char **argv)
   bcf_hdr_t *vcfhdr = bcf_hdr_read(vcffh);
   if(vcfhdr == NULL) die("Cannot read VCF header: %s", vcf_path);
 
+  // default to low mem if we're not reading from STDIN
+  bool low_mem = use_lowmem ||
+                 (!use_himem && strcmp(vcf_path,"-"));
+
   // Test we can close and reopen files
   if(low_mem) {
+    hts_close(vcffh);
+    bcf_hdr_destroy(vcfhdr);
     if((vcffh = hts_open(vcf_path, "r")) == NULL)
       die("Cannot re-open VCF file: %s", vcf_path);
     if((vcfhdr = bcf_hdr_read(vcffh)) == NULL)
