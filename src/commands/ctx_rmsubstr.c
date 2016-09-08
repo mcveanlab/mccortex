@@ -78,7 +78,7 @@ static int _is_substr(const ReadBuffer *rbuf, size_t idx,
       // read in the list or a complete match with a read before it in the list.
       // That is why we have: (hit->chrom < idx || r->seq.end < r2->seq.end)
       // since identical strings have equal length
-      if(hit->chrom < idx || r->seq.end < r2->seq.end) {
+      if(r->seq.end < r2->seq.end || (r->seq.end == r2->seq.end && idx > hit->chrom)) {
         if(hit->orient == node.orient) {
           // potential FORWARD match
           if(hit->offset >= contig_start &&
@@ -92,7 +92,7 @@ static int _is_substr(const ReadBuffer *rbuf, size_t idx,
           // potential REVERSE match
           // if read is '<NNNN>[kmer]<rem>' rX_rem is the number of chars after
           // the first valid kmer
-          size_t r1_rem =  r->seq.end - (contig_start   + kmer_size);
+          size_t r1_rem = r->seq.end - (contig_start + kmer_size);
           size_t r2_rem = r2->seq.end - (hit->offset + kmer_size);
 
           if(r1_rem <= hit->offset && r2_rem >= contig_start &&
