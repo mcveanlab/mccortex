@@ -49,8 +49,8 @@ def quack():
 def reverse_complement(s):
   complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', \
                 'a': 't', 'c': 'g', 'g': 'c', 't': 'a'}
-  bases = list(s) # get returns the base if not in dict
-  bases = reversed([complement.get(base,base) for base in bases])
+  # get returns the base if not in dict
+  bases = reversed([complement.get(b,b) for b in s])
   return ''.join(bases)
 
 def dna_key(s):

@@ -1,38 +1,46 @@
+#!/usr/bin/env python
 from __future__ import print_function
 try: input = raw_input
 except: pass
 
-# Input:
-#  <K> :int
+# usage: python break-contigs-vs-truth.py <k> [input.txt]
+# input.txt:
 #  <master> :string
 #  <query1> :string
 #  <query2> :string
 #  ...
 #
 # Output:
-#  <qid> <matching-str>
+#  <contig-id> <ref-strand> <ref-start> <contig-substr>
 #  ...
-#  <nqueries> <nbreaks> <num-zero-match-queries>
-# For each query string, report all maximal substrings of length >=k common
-# between it and the master string.
+#
+# For each query string, report all maximal substring alignments between it and
+# the master string. Alignments are of length >= k and can include single base
+# mismatches as long as they are flanked by k matching bases.
+#
+# Next we print coverage of ref using maximal alignments to contigs.
+# Finally we report NG50 and number of assembly errors.
+#
 # Time is on average NlogN where N is number of query bases. Worst case N^2
 #  e.g. aaaaaaaaaaaa vs aaaaaaaaaaaa
 # Memory usage is linear with length of the master string and number of maximal
 # substring matches.
 #
-# Isaac Turner 2016-09-08
+# Isaac Turner 2016-09-10
 # MIT License
+
 
 import fileinput
 import pyRBT
+import sys
 from collections import defaultdict
 
 class Alignment:
-  def __init__(self,strand,start1,start2,length):
-    self.strand = strand
+  def __init__(self,seqid,start1,start2,length):
+    self.seqid = seqid
     self.start1,self.start2,self.length = start1,start2,length
   def __cmp__(x,y):
-    if x.strand != y.strand: return x.strand - y.strand
+    if x.seqid != y.seqid: return x.seqid - y.seqid
     xoff,yoff = x.start1-x.start2,y.start1-y.start2
     if xoff != yoff: return xoff - yoff
     if x.start1 >= y.start1+y.length: return 1
@@ -44,94 +52,184 @@ class Alignment:
   def __ne__(x,y): return x.__cmp__(y) != 0
   def __le__(x,y): return x.__cmp__(y) <= 0
   def __lt__(x,y): return x.__cmp__(y)  < 0
+  def __str__(self):
+    return ("Alignment(id:"+str(self.seqid)+"," +
+            "starts:("+str(self.start1)+","+str(self.start2)+")," +
+            "len:"+str(self.length)+")")
 
 def dna_reverse_complement(s):
   h = {'a':'t','c':'g','g':'c','t':'a','A':'T','C':'G','G':'C','T':'A'}
-  t = [ h[c] if c in h else c for c in s ]
+  t = [ h.get(c,c) for c in s ]
   return ''.join(t[::-1])
 
-k = int(input().strip())
-master = input().strip()
-
-occ = defaultdict(list) # [ (strand,pos) ... ]
-for i in range(len(master)-k+1):
-  occ[master[i:i+k]].append((True,i))
-masterrc = dna_reverse_complement(master)
-for i in range(len(masterrc)-k+1):
-  occ[masterrc[i:i+k]].append((False,i))
-
-def dna_is_substring(k,occ,l,i,s):
-  k0 = s[:k]
-  for (idx,pos) in occ[k0]:
-    if (idx//2 != i and
-        (len(l[idx]) > len(s) or
-         (len(l[idx]) == len(s) and idx//2 < i))):
-      if l[idx][pos:pos+len(s)] == s: return True
-  return False
-
-# Remove substrings from set of strings using kmer-based approach
-def remove_dna_substrings(k,strs):
-  occ = defaultdict(list) # [ (stridx,pos) ... ]
-  l = [] # contains forward and reverse strings
-  for s in strs:
-    for pos in range(len(s)-k+1): occ[s[pos:pos+k]].append((len(l),pos))
-    l.append(s)
-    s = dna_reverse_complement(s)
-    for pos in range(len(s)-k+1): occ[s[pos:pos+k]].append((len(l),pos))
-    l.append(s)
-  m = []
-  for i,s in enumerate(strs):
-    if not dna_is_substring(k,occ,l,i,s):
-      m.append(s)
-  return m
-
-# remove_dna_substrings(3,['acd','acdf','xxy','xxy'])
+# upper case
+def build_occ_hash(occ,k,seq,seqid):
+  for i in range(len(seq)-k+1):
+    occ[seq[i:i+k].upper()].append((seqid,i))
 
 # Extend a match as far as we have an exact match or a mismatch flanked by k
 # exact matches either side. Seeded from an initial matching kmer
 def extend_match_kmer_match(a,b,s1,s2,k):
   e1,e2 = s1+k,s2+k
   while True:
-    while s1 > 0 and s2 > 0 and a[s1-1] == b[s2-1]: s1,s2 = s1-1,s2-1
-    if s1 > k and s2 > k and a[s1-k-1:s1-1] == b[s2-k-1:s2-1]:
+    while s1 > 0 and s2 > 0 and a[s1-1].upper() == b[s2-1].upper(): s1,s2 = s1-1,s2-1
+    if s1 > k and s2 > k and a[s1-k-1:s1-1].upper() == b[s2-k-1:s2-1].upper():
       s1 -= k+1; s2 -= k+1
     else: break
   while True:
-    while e1 < len(a) and e2 < len(b) and a[e1] == b[e2]: e1,e2 = e1+1,e2+1
-    if e1+k < len(a) and e2+k < len(b) and a[e1+1:e1+1+k] == b[e2+1:e2+1+k]:
+    while e1 < len(a) and e2 < len(b) and a[e1].upper() == b[e2].upper(): e1,e2 = e1+1,e2+1
+    if e1+k < len(a) and e2+k < len(b) and a[e1+1:e1+1+k].upper() == b[e2+1:e2+1+k].upper():
       e1 += k+1; e2 += k+1
     else: break
   return (s1,e1,s2,e2)
 
-nbreaks = 0
-nomatches = 0
-noutput = 0
+# Segment tree
+# Query if there is an uncovered region in a set of intervals
+class GapSegNode:
+  def __init__(self,start,end,l=None,r=None):
+    (self.start,self.end,self.l,self.r,self.regs) = (start,end,l,r,[])
+  def add_interval(self,reg):
+    if reg[0] >= self.end or reg[1] <= self.start: return # does not overlap
+    if reg[0] <= self.start and reg[1] >= self.end: # contained
+      self.regs.append(reg)
+    else:
+      if self.l is not None: self.l.add_interval(reg)
+      if self.r is not None: self.r.add_interval(reg)
+  def gap_in_interval(self,reg):
+    if reg[0] >= self.end or reg[1] <= self.start: return False # does not overlap
+    if len(self.regs) > 0: return False
+    if self.l is None and self.r is None: return True
+    return self.l.gap_in_interval(reg) or self.r.gap_in_interval(reg)
+  def __str__(self):
+    return "GapSegNode("+str(self.start)+","+str(self.end)+")"
+  @staticmethod
+  def build_tree(start,end):
+    # build tree bottom up
+    assert start < end
+    l = [ GapSegNode(i,i+1) for i in range(start,end) ]
+    while len(l) > 1:
+      N = 2*int(len(l)//2)
+      m = [ GapSegNode(l[i].start,l[i+1].end,l[i],l[i+1]) for i in range(0,N,2) ]
+      if len(l)%2 == 1: m.append(GapSegNode(l[-1].start, l[-1].end, l[-1]))
+      l = m
+    return l[0]
 
-# Iterate over queries
-qi = 0
-for q in fileinput.input():
-  q = q.strip()
-  rbt = pyRBT.pyRBT()
-  l = []
-  for i in range(len(q)-k+1):
-    kmer = q[i:i+k]
-    for (fwstrand,pos) in occ[kmer]:
-      # create alignment
-      aln = Alignment(fwstrand,pos,i,k)
-      if aln not in rbt:
-        # extend alignment
-        s1,s2 = pos,i
-        m = master if fwstrand else masterrc
-        (s1,e1,s2,e2) = extend_match_kmer_match(m,q,s1,s2,k)
-        aln.start1,aln.start2,aln.length = s1,s2,e1-s1
-        # store and print
-        rbt.insert(aln)
-        l.append(q[s2:e2])
-  l = remove_dna_substrings(k,l)
-  for s in l: print(qi,s)
-  nbreaks += 1 if len(l) == 0 else len(l)-1
-  nomatches += (len(l) == 0)
-  noutput += len(l)
-  qi += 1
+# `l` is a list of alignments of sequence `seq` against the ref
+# for each kmer in seq, keep the longest substring in l that covers it
+# discard all substrings that are not kept
+def reduce_alignments(seq,l):
+  # sort alignments by length (longest to shortest)
+  l.sort(key=lambda x: -x.length)
+  # iterate over alignments, only taking those that cover uncovered kmers
+  gst = GapSegNode.build_tree(0,len(seq))
+  keep = []
+  for aln in l:
+    reg = (aln.start2, aln.start2+aln.length)
+    if gst.gap_in_interval(reg):
+      keep.append(aln)
+      gst.add_interval(reg)
+  return keep
 
-print(qi,noutput,nbreaks,nomatches)
+# l is a list of (start,length) contig alignments
+# removes substrings from l (BEWARE: they get deleted!)
+# returns contig_index,contig_length
+def ng50_from_coverage(l,reflen):
+  # sort by start (ascending) and length (descending) to remove substrings
+  # on the ref
+  l.sort(key=lambda x: (x[0],-x[1]))
+  j = end = 0
+  for x in l:
+    if x[0]+x[1] > end:
+      end = x[0]+x[1]
+      l[j] = x
+      j += 1
+  del(l[j:])
+  # sort by length (descending), start position (ascending)
+  l.sort(key=lambda x: (-x[1],x[0]))
+  halflen = reflen//2
+  lensum = n = 0
+  while lensum < halflen:
+    if n == len(l):
+      print("Warning: haven't assembled half of ref, NG50 is underestimate",
+            file=sys.stderr)
+      break
+    lensum += l[n][1]
+    n += 1
+  return (n,l[n][1])
+
+# for a given alignment, get left hand position on + strand
+def convert_ref_strandpos(aln,reflen):
+  return aln.start1 if aln.seqid&1 == 0 else reflen-(aln.start1+aln.length)
+
+def main(k,path):
+  master = input().strip()
+  masterrc = dna_reverse_complement(master)
+  print(master)
+  print(masterrc)
+  occ = defaultdict(list) # [ (strand,pos) ... ]
+  build_occ_hash(occ,k,master,0)
+  build_occ_hash(occ,k,masterrc,1)
+  n_asm_errors = n_no_matches = n_output = 0
+  m_cov = []
+  strands = ["+","-"]
+  print("# Matching contigs sections")
+  print("# contig-id contig-substr ref-start ref-strand")
+  # Iterate over queries
+  qi = 0
+  for q in fileinput.input(path):
+    q = q.strip()
+    rbt = pyRBT.pyRBT()
+    l = []
+    for i in range(len(q)-k+1):
+      kmer = q[i:i+k].upper()
+      for (seqid,pos) in occ[kmer]:
+        # create alignment
+        aln = Alignment(seqid,pos,i,k)
+        if aln not in rbt:
+          # extend alignment
+          s1,s2 = pos,i
+          m = master if seqid==0 else masterrc
+          (s1,e1,s2,e2) = extend_match_kmer_match(m,q,s1,s2,k)
+          aln.start1,aln.start2,aln.length = s1,s2,e1-s1
+          # store and print
+          rbt.insert(aln)
+          # l.append(q[s2:e2])
+          l.append(aln)
+    for x in l:
+      s = convert_ref_strandpos(x,len(master))
+      m_cov.append((s,x.length,qi,x.seqid&1,x.start2))
+    l = reduce_alignments(q,l)
+    for x in l:
+      s = convert_ref_strandpos(x,len(master))
+      print(qi,q[x.start2:x.start2+x.length],s,strands[x.seqid&1])
+    n_asm_errors += max(0,len(l)-1)
+    n_no_matches += (len(l) == 0)
+    n_output += len(l)
+    qi += 1
+  (_,ng50) = ng50_from_coverage(m_cov,len(master))
+  print() # empty line separates output, now print ref matches
+  print("# Ref positions assembled (longest to shortest)")
+  print("# start positions are 0-based and indicate the left hand position")
+  print("# ref-start length contig-id contig-start contig-strand")
+  m_cov.sort() # sort by start, length (both ascending)
+  for x in m_cov: print(x[0],x[1],x[2],x[4],strands[x[3]])
+  print("contigs_read:",qi,file=sys.stderr)
+  print("contigs_printed:",n_output,file=sys.stderr)
+  print("assembly_errors:",n_asm_errors,file=sys.stderr)
+  print("nomatch_contigs:",n_no_matches,file=sys.stderr)
+  print("contigs_nunique:",len(m_cov),file=sys.stderr)
+  print("reflen:",len(master),file=sys.stderr)
+  print("NG50:",ng50,file=sys.stderr)
+
+def usage(err=None):
+  if err is not None: print(err,file=sys.stderr)
+  print("python break-contigs-vs-truth.py <k> [contigs.txt]",file=sys.stderr)
+  exit(-1)
+
+if __name__ == '__main__':
+  if len(sys.argv) < 2 or len(sys.argv) > 3: usage()
+  try: k = int(sys.argv[1])
+  except ValueError: usage("Error: invalid kmer value '"+sys.argv[1]+"'")
+  path = sys.argv[2] if len(sys.argv) > 2 else "-"
+  print("k:",k,"path:",path,file=sys.stderr)
+  main(k,path)
