@@ -217,7 +217,8 @@ def main(k,path):
   print("contigs_printed:",n_output,file=sys.stderr)
   print("assembly_errors:",n_asm_errors,file=sys.stderr)
   print("nomatch_contigs:",n_no_matches,file=sys.stderr)
-  print("contigs_nunique:",len(m_cov),file=sys.stderr)
+  # number of unique segments of the reference that were assembled
+  print("num_uniq_ref_segs:",len(m_cov),file=sys.stderr)
   print("reflen:",len(master),file=sys.stderr)
   print("NG50:",ng50,file=sys.stderr)
 
