@@ -198,7 +198,7 @@ int ctx_rmsubstr(int argc, char **argv)
                                         memargs.num_kmers_set,
                                         bits_per_kmer,
                                         0, est_num_bases,
-                                        false, &graph_mem);
+                                        true, &graph_mem);
 
   // 1 byte per kmer for each base to load sequence files
   size_t total_mem = kmers_in_hash*bits_per_kmer/8 + est_num_bases;
