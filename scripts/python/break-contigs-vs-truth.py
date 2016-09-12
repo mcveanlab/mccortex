@@ -97,9 +97,10 @@ class GapSegNode:
       if self.r is not None: self.r.add_interval(reg)
   def gap_in_interval(self,reg):
     if reg[0] >= self.end or reg[1] <= self.start: return False # does not overlap
-    if len(self.regs) > 0: return False
-    if self.l is None and self.r is None: return True
-    return self.l.gap_in_interval(reg) or self.r.gap_in_interval(reg)
+    if len(self.regs) > 0: return False # this node is covered
+    if self.l is None and self.r is None: return True # leaf node
+    return ((self.l is not None and self.l.gap_in_interval(reg)) or
+            (self.r is not None and self.r.gap_in_interval(reg)))
   def __str__(self):
     return "GapSegNode("+str(self.start)+","+str(self.end)+")"
   @staticmethod
