@@ -50,7 +50,7 @@ p1 <- ggplot(data=d, aes(x=K, y=NG50, color=graph)) + theme_minimal() +
 
 p2 <- ggplot(data=d, aes(x=K, y=AssemblyErrors, color=graph)) + theme_minimal() +
       geom_point(shape=4) + geom_line() +
-      scale_y_continuous(breaks=seq(0,20,10)) + coord_cartesian(ylim=c(0,20)) +
+      scale_y_continuous(breaks=seq(0,100,20)) + coord_cartesian(ylim=c(0,100)) +
       ylab("Assembly Errors") +
       theme(legend.position="none") # hide legend
 

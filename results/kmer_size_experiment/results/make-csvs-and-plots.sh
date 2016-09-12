@@ -8,4 +8,4 @@
 
 ./make-csv.sh ../stocherr_cov/k*/stats.plain.txt > stocherr.plain.csv
 ./make-csv.sh ../stocherr_cov/k*/stats.links.txt > stocherr.links.csv
-./plot-n50-and-errs.R stocherr.plain.csv stocherr.links.csv "Stochastic coverage + Error (100X, 100bp reads, 1% err)" stocherr.cov.pdf
+./plot-n50-and-errs.R stocherr.plain.csv stocherr.links.csv "Stochastic coverage + Error (100X, 100bp reads, 0.5% err)" stocherr.cov.pdf

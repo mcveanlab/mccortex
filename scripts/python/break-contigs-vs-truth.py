@@ -69,17 +69,33 @@ def build_occ_hash(occ,k,seq,seqid):
 
 # Extend a match as far as we have an exact match or a mismatch flanked by k
 # exact matches either side. Seeded from an initial matching kmer
-def extend_match_kmer_match(a,b,s1,s2,k):
-  e1,e2 = s1+k,s2+k
+def extend_match_kmer_match(a,b,s1,e1,s2,e2,M):
   while True:
     while s1 > 0 and s2 > 0 and a[s1-1].upper() == b[s2-1].upper(): s1,s2 = s1-1,s2-1
-    if s1 > k and s2 > k and a[s1-k-1:s1-1].upper() == b[s2-k-1:s2-1].upper():
-      s1 -= k+1; s2 -= k+1
+    if s1 > M and s2 > M and a[s1-M-1:s1-1].upper() == b[s2-M-1:s2-1].upper():
+      s1 -= M+1; s2 -= M+1
     else: break
   while True:
     while e1 < len(a) and e2 < len(b) and a[e1].upper() == b[e2].upper(): e1,e2 = e1+1,e2+1
-    if e1+k < len(a) and e2+k < len(b) and a[e1+1:e1+1+k].upper() == b[e2+1:e2+1+k].upper():
-      e1 += k+1; e2 += k+1
+    if e1+M < len(a) and e2+M < len(b) and a[e1+1:e1+1+M].upper() == b[e2+1:e2+1+M].upper():
+      e1 += M+1; e2 += M+1
+    else: break
+  return (s1,e1,s2,e2)
+
+def count_str_matches(a,b):
+  return sum([ i.upper() == j.upper() for i,j in zip(a,b) ])
+
+# Extend a match as far as we have an exact match or N matches within M bases
+def extend_match_kmer_match2(a,b,s1,e1,s2,e2,M,N):
+  while True:
+    while s1 > 0 and s2 > 0 and a[s1-1].upper() == b[s2-1].upper(): s1,s2 = s1-1,s2-1
+    if s1 > M and s2 > M and count_str_matches(a[s1-1-M:s1-1], b[s2-1-M:s2-1]) >= N:
+      s1 -= M+1; s2 -= M+1
+    else: break
+  while True:
+    while e1 < len(a) and e2 < len(b) and a[e1].upper() == b[e2].upper(): e1,e2 = e1+1,e2+1
+    if e1+M < len(a) and e2+M < len(b) and count_str_matches(a[e1+1:e1+1+M], b[e2+1:e2+1+M]) >= N:
+      e1 += M+1; e2 += M+1
     else: break
   return (s1,e1,s2,e2)
 
@@ -153,7 +169,7 @@ def ng50_from_coverage(l,reflen):
     if n == len(l):
       print("Warning: haven't assembled half of ref, NG50 is underestimate",
             file=sys.stderr)
-      break
+      return (n,lensum)
     lensum += l[n][1]
     n += 1
   return (n,l[n][1])
@@ -190,11 +206,11 @@ def main(k,path):
           # extend alignment
           s1,s2 = pos,i
           m = master if seqid==0 else masterrc
-          (s1,e1,s2,e2) = extend_match_kmer_match(m,q,s1,s2,k)
+          (s1,e1,s2,e2) = extend_match_kmer_match(m,q,s1,s1+k,s2,s2+k,5)
+          # (s1,e1,s2,e2) = extend_match_kmer_match2(m,q,s1,s1+k,s2,s2+k,10,6)
           aln.start1,aln.start2,aln.length = s1,s2,e1-s1
           # store and print
           rbt.insert(aln)
-          # l.append(q[s2:e2])
           l.append(aln)
     for x in l:
       s = convert_ref_strandpos(x,len(master))

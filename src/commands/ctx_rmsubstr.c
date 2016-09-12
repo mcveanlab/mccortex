@@ -179,20 +179,35 @@ int ctx_rmsubstr(int argc, char **argv)
   // Decide on memory
   //
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
+  size_t mem_to_use = memargs.mem_to_use;
 
   bits_per_kmer = sizeof(BinaryKmer)*8 +
-                  sizeof(KONodeList) + sizeof(KOccur) + // see kmer_occur.h
-                  8; // 1 byte per kmer for each base to load sequence files
+                  sizeof(KONodeList) + sizeof(KOccur); // see kmer_occur.h
 
-  kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
+  if(mem_to_use < (size_t)est_num_bases) {
+    warn("You probably need at least %zu bytes (> %zu)",
+         (size_t)est_num_bases, memargs.mem_to_use);
+  }
+  else {
+    mem_to_use -= est_num_bases;
+  }
+
+  kmers_in_hash = cmd_get_kmers_in_hash(mem_to_use,
                                         memargs.mem_to_use_set,
                                         memargs.num_kmers,
                                         memargs.num_kmers_set,
                                         bits_per_kmer,
-                                        est_num_bases, est_num_bases,
+                                        0, est_num_bases,
                                         false, &graph_mem);
 
-  cmd_check_mem_limit(memargs.mem_to_use, graph_mem);
+  // 1 byte per kmer for each base to load sequence files
+  size_t total_mem = kmers_in_hash*bits_per_kmer/8 + est_num_bases;
+
+  char memstr[50];
+  bytes_to_str(total_mem, 1, memstr);
+  status("[memory] total mem with input: %s\n", memstr);
+
+  cmd_check_mem_limit(memargs.mem_to_use, total_mem);
 
   //
   // Open output file
