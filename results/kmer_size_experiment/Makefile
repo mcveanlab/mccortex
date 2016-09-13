@@ -15,6 +15,8 @@ KMERS=21 31 41 51 61 71 81 91 99
 CTXDIR=../../
 READSIM=$(CTXDIR)/libs/readsim/readsim
 PERFECTSIM=$(CTXDIR)/libs/seq_file/scripts/perfect_covg.sh
+DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
+COUNT_BAD_EDGES=python $(CTXDIR)/scripts/python/count-bad-edges.py
 REF=$(CTXDIR)/results/data/chr22/chr22_17M_18M.fa
 READS_PERFECT=data/perfect_cov.fa.gz
 READS_STOCH=data/stoch_cov.fa.gz
@@ -34,7 +36,7 @@ DIRS=data $(NAMES)
 # Keep all files
 .SECONDARY:
 
-all: $(PLAIN_STATS) $(LINKS_STATS)
+all: $(PLAIN_STATS) $(LINKS_STATS) seqn.errors.csv
 
 $(REF):
 	cd ../data && ./download.sh
@@ -57,10 +59,15 @@ stoch_cov/k%/stats.plain.txt stoch_cov/k%/stats.links.txt: $(READS_STOCH)
 stocherr_cov/k%/stats.plain.txt stocherr_cov/k%/stats.links.txt: $(READS_STOCHERR)
 	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=stocherr_cov INPUT=$(READS_STOCHERR) CLEAN=1
 
+# Find the number of sequencing errors that would add a new edges between two
+# existing kmers
+seqn.errors.csv: $(REF)
+	$(DNACAT) -P $(REF) | $(COUNT_BAD_EDGES) $(DEPTH) $(ERRRATE) > $@
+
 $(DIRS):
 	mkdir -p $@
 
 clean:
-	rm -rf $(DIRS)
+	rm -rf $(DIRS) seqn.errors.csv
 
 .PHONY: all clean
