@@ -12,7 +12,7 @@ cov = None
 seqn_err_rate = None
 
 def usage():
-  print("usage: python count-bad-edges.py <cov> <seqn-err-rate>",file=sys.stderr)
+  print("usage: python count-bad-edges.py [<cov> <seqn-err-rate>]",file=sys.stderr)
   exit(-1)
 
 if len(sys.argv) != 1 and len(sys.argv) != 3: usage()
@@ -25,7 +25,7 @@ kmers = [21,31,41,51,61,71,81,91,99]
 
 def est_num_of_added_edges(reflen,nerror_edges,cov,seqn_err_rate):
   nerrors = cov * reflen * seqn_err_rate
-  bad_error_rate = nerror_edges / (3.0 * reflen) # errs that create new edges
+  bad_error_rate = nerror_edges / (3.0 * reflen) # errs that create new edges
   return int(nerrors*bad_error_rate)
 
 print("# The number of sequencing errors that would add a new edge between two")
@@ -43,7 +43,7 @@ for k in kmers:
     edges.add(s[i:i+k+1])
   kmers.add(s[-k:])
   err_edges = 0
-  pk = s[0:k] # first kmer
+  pk = s[0:k] # first kmer
   for i in range(1,len(s)-k+1):
     nextb = s[i+k-1]
     for c in "ACGT":
