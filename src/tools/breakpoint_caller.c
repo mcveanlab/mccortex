@@ -599,7 +599,7 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   gzputs(gzout, "\n");
   gzputs(gzout, "# This file was generated with McCortex\n");
   gzputs(gzout, "#   written by Isaac Turner <turner.isaac@gmail.com>\n");
-  gzputs(gzout, "#   url: "CORTEX_URL"\n");
+  gzputs(gzout, "#   url: "MCCORTEX_URL"\n");
   gzputs(gzout, "# \n");
   gzputs(gzout, "# Comment lines begin with a # and are ignored, but must come after the header\n");
   gzputs(gzout, "# Format is:\n");

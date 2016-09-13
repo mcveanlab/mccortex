@@ -40,7 +40,7 @@
 #define ONE_MEGABYTE (1<<20)
 #define MAX_IO_THREADS 10
 #define DEFAULT_IO_BUFSIZE (4*ONE_MEGABYTE)
-#define CORTEX_URL "https://github.com/mcveanlab/mccortex"
+#define MCCORTEX_URL "https://github.com/mcveanlab/mccortex"
 
 #include "ctx_assert.h"
 #include "ctx_alloc.h" // Wrappers for malloc, calloc etc.

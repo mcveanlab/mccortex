@@ -64,7 +64,7 @@ static void test_add_remove()
   HASH_ITERATE(&ht, xor_bkmers, &ht, &bkresult, &kcount);
 
   TASSERT(kcount == ht.num_kmers);
-  TASSERT(binary_kmers_are_equal(bkxor, bkresult));
+  TASSERT(binary_kmer_eq(bkxor, bkresult));
 
   hash_table_dealloc(&ht);
 }

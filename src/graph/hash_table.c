@@ -92,7 +92,7 @@ static inline const BinaryKmer* hash_table_find_in_bucket(const HashTable *const
   const BinaryKmer *end = ptr + hash_table_bsize(ht, bucket);
 
   while(ptr < end) {
-    if(binary_kmers_are_equal(bkmer, *ptr)) return ptr;
+    if(binary_kmer_eq(bkmer, *ptr)) return ptr;
     ptr++;
   }
   return NULL; // Not found
@@ -107,7 +107,7 @@ static inline const BinaryKmer* hash_table_find_in_bucket(const HashTable *const
 
 //   while(ptr < end) {
 //     BinaryKmer tgt = *(volatile const BinaryKmer*)ptr;
-//     if(binary_kmers_are_equal(bkmer, tgt)) return ptr;
+//     if(binary_kmer_eq(bkmer, tgt)) return ptr;
 //     ptr++;
 //   }
 //   return NULL; // Not found

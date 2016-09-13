@@ -13,16 +13,6 @@
 // This is exported
 const BinaryKmer zero_bkmer = BINARY_KMER_ZERO_MACRO;
 
-// less than for 1 or 2 bitfields is defined in the header
-#if NUM_BKMER_WORDS > 2
-bool binary_kmer_less_than(BinaryKmer left, BinaryKmer right) {
-  size_t i;
-  for(i = 0; i < NUM_BKMER_WORDS && left.b[i] == right.b[i]; i++);
-  return (i < NUM_BKMER_WORDS && left.b[i] < right.b[i]);
-}
-#endif
-
-
 BinaryKmer binary_kmer_from_old(BinaryKmer bkmer, size_t kmer_size)
 {
   size_t o = 0, x = 2*(kmer_size&31);
@@ -47,18 +37,6 @@ BinaryKmer binary_kmer_to_old(BinaryKmer bkmer, size_t kmer_size)
   return nbkmer;
 }
 
-#if NUM_BKMER_WORDS > 1
-  int binary_kmers_cmp(BinaryKmer a, BinaryKmer b)
-  {
-    size_t i;
-    for(i = 0; i < NUM_BKMER_WORDS; i++) {
-      if(a.b[i] < b.b[i]) return -1;
-      if(a.b[i] > b.b[i]) return  1;
-    }
-    return 0;
-  }
-#endif
-
 // For a given kmer, get the BinaryKmer 'key':
 // the lower of the kmer vs reverse complement of itself
 // kmer and kmer_key must NOT point to overlapping memory
@@ -75,7 +53,7 @@ BinaryKmer binary_kmer_get_key(const BinaryKmer bkmer, size_t kmer_size)
 
   // Don't know which is going to be correct -- this will happen 1 in 4 times
   bkey = binary_kmer_reverse_complement(bkmer, kmer_size);
-  return (binary_kmer_less_than(bkmer, bkey) ? bkmer : bkey);
+  return (binary_kmer_lt(bkmer, bkey) ? bkmer : bkey);
 }
 
 #if NUM_BKMER_WORDS > 1

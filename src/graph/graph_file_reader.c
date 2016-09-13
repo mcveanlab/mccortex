@@ -413,6 +413,34 @@ bool graph_file_read_reset(GraphFileReader *file,
   return graph_file_read(file, bkmer, covgs, edges);
 }
 
+// Read coverages and edges only (no kmer)
+void graph_file_read_covgs_edges(GraphFileReader *f, Covg *covgs, Edges *edges)
+{
+  size_t from, into, i;
+  const FileFilter *fltr = &f->fltr;
+  Covg allcovgs[f->hdr.num_of_cols];
+  Edges alledges[f->hdr.num_of_cols];
+  gfr_fread_bytes(f, allcovgs, sizeof(allcovgs));
+  gfr_fread_bytes(f, alledges, sizeof(alledges));
+  if(covgs) {
+    memset(covgs, 0, file_filter_into_ncols(fltr) * sizeof(Covg));
+    for(i = 0; i < file_filter_num(fltr); i++) {
+      from = file_filter_fromcol(fltr, i);
+      into = file_filter_intocol(fltr, i);
+      covgs[into] = SAFE_ADD_COVG(covgs[into], allcovgs[from]);
+    }
+  }
+  if(edges) {
+    memset(edges, 0, file_filter_into_ncols(fltr) * sizeof(Edges));
+    for(i = 0; i < file_filter_num(fltr); i++) {
+      from = file_filter_fromcol(fltr,i);
+      into = file_filter_intocol(fltr, i);
+      edges[into] |= alledges[from];
+    }
+  }
+}
+
+
 // Returns true if one or more files passed loads data into colour
 bool graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,
                                  size_t num_files)

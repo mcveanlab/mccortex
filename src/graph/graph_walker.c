@@ -784,7 +784,7 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
     bkmer0 = binary_kmer_left_shift_one_base(bkmer0, wlk->db_graph->kmer_size);
     binary_kmer_set_last_nuc(&bkmer1, 0);
 
-    if(!binary_kmers_are_equal(bkmer0, bkmer1))
+    if(!binary_kmer_eq(bkmer0, bkmer1))
     {
       char bstr0[MAX_KMER_SIZE+1], bstr1[MAX_KMER_SIZE+1];
       binary_kmer_to_str(bkmer0, wlk->db_graph->kmer_size, bstr0);
@@ -793,7 +793,7 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
       printf("wlk: %s contig: %s num_nodes %zu\n", bstr0, bstr1, num_nodes);
     }
 
-    ctx_check(binary_kmers_are_equal(bkmer0, bkmer1));
+    ctx_check(binary_kmer_eq(bkmer0, bkmer1));
   #endif
 
   dBNode nodes[4];

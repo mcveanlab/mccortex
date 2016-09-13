@@ -10,7 +10,7 @@
 const char ctp_explanation_comment[] =
 "# This file was generated with McCortex\n"
 "#   written by Isaac Turner <turner.isaac@gmail.com>\n"
-"#   url: "CORTEX_URL"\n"
+"#   url: "MCCORTEX_URL"\n"
 "# \n"
 "# Comment lines begin with a # and are ignored, but must come after the header\n"
 "# Format is:\n"

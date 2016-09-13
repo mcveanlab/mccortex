@@ -107,7 +107,7 @@ static inline void db_node_set_col_mt(const dBGraph *graph,
 //
 
 #define bkmer_get_orientation(bkmer,bkey) \
-        (binary_kmers_are_equal((bkmer), (bkey)) ? FORWARD : REVERSE)
+        (binary_kmer_eq((bkmer), (bkey)) ? FORWARD : REVERSE)
 
 #define bkmer_oriented_bkmer(bkmer,or,ksize) \
         (or == FORWARD ? bkmer : binary_kmer_reverse_complement(bkmer,ksize))
