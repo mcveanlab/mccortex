@@ -27,16 +27,19 @@ GraphFileSearch *graph_search_new(GraphFileReader *file)
   gs->nblocks = (gs->nkmers+gs->blocksize-1) / gs->blocksize;
   gs->index = ctx_calloc(sizeof(BinaryKmer), gs->nblocks+1); // sentinel
   memset(gs->index[gs->nblocks].b,0xff,BKMER_BYTES); // sentinel kmer
+  status("[graph_search] on-disk-graph %zu cols %zu blocks %zu bsize %zu kmers"
+         " building...", gs->ncols, gs->nblocks, gs->blocksize, gs->nkmers);
+  graph_file_set_buffered(file, false); // Turn OFF buffered input
   for(i = 0; i < gs->nblocks; i++) {
     graph_file_fseek(file, graph_file_offset(file, i*gs->blocksize), SEEK_SET);
-    gfr_fread_bytes(file, &gs->index[i], sizeof(BinaryKmer));
+    graph_file_fread(file, &gs->index[i], sizeof(BinaryKmer));
   }
+  graph_file_set_buffered(file, true); // Turn ON buffered input
   // check file is sorted
   for(i = 0; i+1 < gs->nblocks; i++)
     if(!binary_kmer_lt(gs->index[i],gs->index[i+1]))
       die("File is not sorted: %s", file_filter_path(&file->fltr));
-  status("[graph_search] on-disk-graph %zu cols %zu blocks %zu bsize %zu kmers",
-         gs->ncols, gs->nblocks, gs->blocksize, gs->nkmers);
+  status("[graph_search] Index built.");
   return gs;
 }
 
@@ -76,7 +79,7 @@ static inline bool search_file_sec(GraphFileSearch *gs, BinaryKmer bkey,
   while(start + max_block < end) {
     mid = (start+end) / 2;
     graph_file_fseek(gs->file, hdrsize+entsize*mid, SEEK_SET);
-    gfr_fread_bytes(gs->file, bmid.b, sizeof(BinaryKmer));
+    graph_file_fread(gs->file, bmid.b, sizeof(BinaryKmer));
     if(binary_kmer_eq(bkey,bmid)) { fprintf(stderr,"index hit\n"); return true; }
     if(binary_kmer_lt(bkey,bmid)) end = mid;
     else start = mid + 1;
@@ -87,7 +90,7 @@ static inline bool search_file_sec(GraphFileSearch *gs, BinaryKmer bkey,
   // fprintf(stderr, "Linear search over %zu-%zu\n", start, end);
   graph_file_fseek(gs->file, hdrsize+entsize*start, SEEK_SET);
   for(mid = start; mid < end; mid++) {
-    gfr_fread_bytes(gs->file, bmid.b, sizeof(BinaryKmer));
+    graph_file_fread(gs->file, bmid.b, sizeof(BinaryKmer));
     // fprintf(stderr, "Read %zu: %s\n", mid, binary_kmer_to_str(bmid, kmer_size, bstr));
     if(binary_kmer_eq(bkey,bmid)) return true;
     if(binary_kmer_lt(bkey,bmid)) return false;
@@ -114,7 +117,7 @@ void graph_search_fetch(GraphFileSearch *gs, size_t idx, BinaryKmer *bkey,
 {
   const size_t entsize = sizeof(BinaryKmer)+gs->ncols*(sizeof(Covg)+sizeof(Edges));
   graph_file_fseek(gs->file, gs->file->hdr_size+entsize*idx, SEEK_SET);
-  gfr_fread_bytes(gs->file, bkey->b, sizeof(BinaryKmer));
+  graph_file_fread(gs->file, bkey->b, sizeof(BinaryKmer));
   if(edges || covgs) graph_file_read_covgs_edges(gs->file, covgs, edges);
 }
 

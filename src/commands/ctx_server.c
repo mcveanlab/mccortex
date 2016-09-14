@@ -310,7 +310,6 @@ int ctx_server(int argc, char **argv)
   //
   const size_t num_gfiles = argc - optind;
   char **graph_paths = argv + optind;
-  GraphFileSearch *disk = NULL;
 
   ctx_assert(num_gfiles > 0);
 
@@ -323,11 +322,8 @@ int ctx_server(int argc, char **argv)
   // Check graph + paths are compatible
   graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.b, gpfiles.len, -1);
 
-  if(use_disk) {
-    if(num_gfiles > 1)
-      cmd_print_usage("Can only use --disk with one sorted graph file");
-    disk = graph_search_new(&gfiles[0]);
-  }
+  if(use_disk && num_gfiles > 1)
+    cmd_print_usage("Can only use --disk with one sorted graph file");
 
   //
   // Decide on memory
@@ -395,9 +391,12 @@ int ctx_server(int argc, char **argv)
   //
   // Load graphs
   //
+  GraphFileSearch *disk = NULL;
+
   if(use_disk) {
     // Only load graph info
     graph_load_ginfo(&db_graph, &gfiles[0]);
+    disk = graph_search_new(&gfiles[0]);
   }
   else {
     GraphLoadingPrefs gprefs = graph_loading_prefs(&db_graph);

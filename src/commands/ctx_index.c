@@ -136,7 +136,7 @@ int ctx_index(int argc, char **argv)
     if(nblocks > 0 && binary_kmer_ge(prev_bkmer,bkmer))
       die("File is not sorted: %s [%s]", bkmerstr, path);
     // We've already read one kmer entry, read rest of block
-    bl_bytes = kmer_mem + gfr_fread_bytes(&gfile, tmp_mem, rem_block);
+    bl_bytes = kmer_mem + graph_file_fread(&gfile, tmp_mem, rem_block);
     bl_kmers = 1 + bl_bytes / kmer_mem;
     fprintf(fout, "%zu\t%zu\t%s\t%zu\t%zu\n",
             bl_byte_offset, bl_byte_offset+bl_bytes, bkmerstr,

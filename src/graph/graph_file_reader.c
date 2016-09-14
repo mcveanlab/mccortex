@@ -4,6 +4,16 @@
 #include "cmd.h"
 #include "file_util.h"
 
+void graph_file_set_buffered(GraphFileReader *file, bool usebuf)
+{
+  if(graph_file_is_buffered(file) == usebuf) return;
+  if(usebuf) strm_buf_alloc(&file->strm, ONE_MEGABYTE);
+  else {
+    fseek(file->fh, (off_t)file->strm.begin - file->strm.end, SEEK_CUR);
+    strm_buf_dealloc(&file->strm);
+  }
+}
+
 int graph_file_fseek(GraphFileReader *file, off_t offset, int whence)
 {
   if(file_filter_isstdin(&file->fltr)) die("Cannot fseek on STDIN");
@@ -21,23 +31,24 @@ off_t graph_file_ftell(GraphFileReader *file)
     return ftell(file->fh);
 }
 
-size_t gfr_fread_bytes(GraphFileReader *file, void *ptr, size_t size)
+// read `n` bytes from `file` into `ptr`
+size_t graph_file_fread(GraphFileReader *file, void *ptr, size_t n)
 {
-  size_t n;
+  size_t nread;
   if(graph_file_is_buffered(file))
-    n = fread_buf(file->fh, ptr, size, &file->strm);
+    nread = fread_buf(file->fh, ptr, n, &file->strm);
   else
-    n = fread2(file->fh, ptr, size);
+    nread = fread2(file->fh, ptr, n);
   // check for error
   if(ferror(file->fh))
     die("File error: %s [%s]", strerror(errno), file_filter_path(&file->fltr));
-  return n;
+  return nread;
 }
 
 // Read an element from the graph file
 #define _gfread(gfile,ptr,size,desc) \
 do { \
-  size_t _n = gfr_fread_bytes(gfile, ptr, size); \
+  size_t _n = graph_file_fread(gfile, ptr, size); \
   const char *_path = file_filter_path(&(gfile)->fltr); \
   if(_n != (size)) { \
     die("Couldn't read '%s': expected %zu; recieved: %zu; [file: %s]\n",\
@@ -342,7 +353,7 @@ size_t graph_file_read_raw(GraphFileReader *file,
   int num_bytes_read;
   char kstr[MAX_KMER_SIZE+1];
 
-  num_bytes_read = gfr_fread_bytes(file, bkmer->b, sizeof(BinaryKmer));
+  num_bytes_read = graph_file_fread(file, bkmer->b, sizeof(BinaryKmer));
 
   if(num_bytes_read == 0) return 0;
   if(num_bytes_read != (int)(sizeof(uint64_t)*h->num_of_bitfields))
@@ -420,8 +431,8 @@ void graph_file_read_covgs_edges(GraphFileReader *f, Covg *covgs, Edges *edges)
   const FileFilter *fltr = &f->fltr;
   Covg allcovgs[f->hdr.num_of_cols];
   Edges alledges[f->hdr.num_of_cols];
-  gfr_fread_bytes(f, allcovgs, sizeof(allcovgs));
-  gfr_fread_bytes(f, alledges, sizeof(alledges));
+  graph_file_fread(f, allcovgs, sizeof(allcovgs));
+  graph_file_fread(f, alledges, sizeof(alledges));
   if(covgs) {
     memset(covgs, 0, file_filter_into_ncols(fltr) * sizeof(Covg));
     for(i = 0; i < file_filter_num(fltr); i++) {

@@ -38,10 +38,13 @@ static inline off_t graph_file_offset(const GraphFileReader *gfr, size_t i)
 }
 
 #define graph_file_is_buffered(file) ((file)->strm.b != NULL)
+void graph_file_set_buffered(GraphFileReader *file, bool usebuf);
+
 int graph_file_fseek(GraphFileReader *file, off_t offset, int whence);
 off_t graph_file_ftell(GraphFileReader *file);
 
-size_t gfr_fread_bytes(GraphFileReader *file, void *ptr, size_t size);
+// read `n` bytes from `file` into `ptr`
+size_t graph_file_fread(GraphFileReader *file, void *ptr, size_t n);
 
 // Open file
 // if cannot open file returns 0

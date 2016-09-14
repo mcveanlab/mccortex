@@ -115,14 +115,14 @@ int ctx_sort(int argc, char **argv)
 
   // Read in whole file
   // if(graph_file_fseek(gfile, gfile.hdr_size, SEEK_SET) != 0) die("fseek failed");
-  size_t nkread = gfr_fread_bytes(&gfile, mem, num_kmers*kmer_mem);
+  size_t nkread = graph_file_fread(&gfile, mem, num_kmers*kmer_mem);
 
   if(nkread != num_kmers*kmer_mem)
     die("Could only read %zu bytes [<%zu]", nkread, num_kmers*kmer_mem);
 
   // check we are at the end of the file
   char tmpc;
-  if(gfr_fread_bytes(&gfile, &tmpc, 1) != 0) {
+  if(graph_file_fread(&gfile, &tmpc, 1) != 0) {
     die("More kmers in file than believed (kmers: %zu ncols: %zu).",
         num_kmers, ncols);
   }
