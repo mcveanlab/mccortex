@@ -166,7 +166,7 @@ static int _dump_contig(Assembler *assem, hkey_t hkey,
     // Print contig
     char kmer_str[MAX_KMER_SIZE+1];
     const char *left_stat, *rght_stat;
-    BinaryKmer seed_bkmer = db_node_get_bkmer(db_graph, hkey);
+    BinaryKmer seed_bkmer = db_node_get_bkey(db_graph, hkey);
     binary_kmer_to_str(seed_bkmer, db_graph->kmer_size, kmer_str);
     dna_revcomp_str(kmer_str, kmer_str, db_graph->kmer_size);
 

@@ -120,7 +120,7 @@ static void store_node_neighbours(const hkey_t hkey, dBNodeBuffer *nbuf,
                                   uint8_t *kmer_mask, const dBGraph *db_graph)
 {
   // Get neighbours
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+  BinaryKmer bkmer = db_node_get_bkey(db_graph, hkey);
   Edges edges = db_node_get_edges_union(db_graph, hkey);
   size_t num_next, i;
   dBNode next_nodes[8];

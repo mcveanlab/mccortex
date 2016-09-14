@@ -258,7 +258,7 @@ bool gpath_checks_path_col(dBNode node, const GPath *gpath,
 
   for(klen = 0, plen = 0; plen < gpath->num_juncs; klen++)
   {
-    bkmer = db_node_get_bkmer(db_graph, node.key);
+    bkmer = db_node_get_bkey(db_graph, node.key);
     edges = db_node_get_edges(db_graph, node.key, edgecol);
 
     // Check this node is in this colour
@@ -282,7 +282,7 @@ bool gpath_checks_path_col(dBNode node, const GPath *gpath,
       int outdegree = edges_get_outdegree(backedges, rnode.orient);
       if(outdegree <= 1) {
         char bkstr[MAX_KMER_SIZE+1];
-        binary_kmer_to_str(db_node_get_bkmer(db_graph, node.key), db_graph->kmer_size, bkstr);
+        binary_kmer_to_str(db_node_get_bkey(db_graph, node.key), db_graph->kmer_size, bkstr);
         status("outdegree: %i col: %zu kmer: %s", (int)outdegree, ctxcol, bkstr);
       }
       ctx_assert_ret(outdegree > 1);

@@ -187,7 +187,7 @@ void json_hdr_add_curr_cmd(cJSON *json, const char *path)
  */
 void json_hdr_make_std(cJSON *json, const char *path,
                        cJSON **hdrs, size_t nhdrs,
-                       const dBGraph *db_graph)
+                       const dBGraph *db_graph, size_t nkmers_in_graph)
 {
   // Add random id string
   #define FILE_KEY_LEN 16
@@ -200,7 +200,7 @@ void json_hdr_make_std(cJSON *json, const char *path,
 
   cJSON_AddNumberToObject(graph, "num_colours",        db_graph->num_of_cols);
   cJSON_AddNumberToObject(graph, "kmer_size",          db_graph->kmer_size);
-  cJSON_AddNumberToObject(graph, "num_kmers_in_graph", db_graph->ht.num_kmers);
+  cJSON_AddNumberToObject(graph, "num_kmers_in_graph", nkmers_in_graph);
 
   cJSON *colours = cJSON_CreateArray();
   cJSON_AddItemToObject(graph, "colours", colours);

@@ -191,7 +191,7 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
 
   #ifdef DEBUG_WALKER
     char bkey_str[MAX_KMER_SIZE+1], node_str[MAX_KMER_SIZE+1];
-    BinaryKmer node_bkey = db_node_get_bkmer(wlk->db_graph, node.key);
+    BinaryKmer node_bkey = db_node_get_bkey(wlk->db_graph, node.key);
     binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, bkey_str);
     binary_kmer_to_str(node_bkey, wlk->db_graph->kmer_size, node_str);
     status("  pickup_paths(): %s:%i node:%s:%i picked up %zu %s paths cntr_filter_nuc0:%i",
@@ -243,7 +243,7 @@ void graph_walker_start(GraphWalker *wlk, dBNode node)
   wlk->last_step.idx = -1;
 
   // Get binary kmer
-  wlk->bkey = db_node_get_bkmer(wlk->db_graph, node.key);
+  wlk->bkey = db_node_get_bkey(wlk->db_graph, node.key);
 
   #ifdef DEBUG_WALKER
     char kmer_str[MAX_KMER_SIZE+1];
@@ -548,7 +548,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
               (int)wlk->last_step.status, (int)is_fork);
 
   // Update GraphWalker position
-  wlk->bkey = db_node_get_bkmer(db_graph, node.key);
+  wlk->bkey = db_node_get_bkey(db_graph, node.key);
   wlk->node = node;
 
   if(is_fork)

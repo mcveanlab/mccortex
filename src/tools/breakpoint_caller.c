@@ -348,7 +348,7 @@ static void traverse_5pflank(BreakpointCaller *caller, GraphCrawler *crawler,
   dBNode next_nodes[4];
   Nucleotide next_nucs[4];
   size_t i, num_next;
-  BinaryKmer bkmer0 = db_node_get_bkmer(db_graph, node0.key);
+  BinaryKmer bkmer0 = db_node_get_bkey(db_graph, node0.key);
 
   num_next = db_graph_next_nodes(db_graph, bkmer0, node0.orient,
                                  db_node_edges(db_graph, node0.key, 0),
@@ -383,7 +383,7 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
   size_t nonref_idx[4], num_nonref_next = 0;
   const dBGraph *db_graph = caller->db_graph;
 
-  BinaryKmer bkey = db_node_get_bkmer(db_graph, node.key);
+  BinaryKmer bkey = db_node_get_bkey(db_graph, node.key);
   Edges edges = db_node_get_edges(db_graph, node.key, 0);
 
   num_next = db_graph_next_nodes(db_graph, bkey, node.orient, edges,
@@ -505,7 +505,7 @@ static inline int breakpoint_caller_node(hkey_t hkey, BreakpointCaller *caller)
   // DEBUG
   // const dBGraph *db_graph = caller->db_graph;
   // char kstr[MAX_KMER_SIZE+1];
-  // BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+  // BinaryKmer bkmer = db_node_get_bkey(db_graph, hkey);
   // binary_kmer_to_str(bkmer, db_graph->kmer_size, kstr);
   // if(strcmp(kstr,"GTTGCTCATGA")) return 0; // skip all but given kmer
   // status("brk %s\n", kstr);
@@ -553,7 +553,7 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   cJSON_AddNumberToObject(json, "format_version", BREAKPOINT_FORMAT_VERSION);
 
   // Add standard cortex headers
-  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph);
+  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph, db_graph->ht.num_kmers);
 
   // Update reference colour
   // json.graph.colours[ref_col]

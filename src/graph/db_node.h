@@ -21,13 +21,13 @@ static inline uint64_t db_node_hash(dBNode node) {
 //
 // Get Binary kmers
 //
-static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey) {
+static inline BinaryKmer db_node_get_bkey(const dBGraph *db_graph, hkey_t hkey) {
   return db_graph->ht.table[hkey];
 }
 
 // Get an oriented bkmer
 #define db_node_oriented_bkmer(graph,node) \
-        bkmer_oriented_bkmer(db_node_get_bkmer(graph,(node).key), \
+        bkmer_oriented_bkmer(db_node_get_bkey(graph,(node).key), \
                              (node).orient, (graph)->kmer_size)
 
 //
@@ -135,11 +135,11 @@ static inline void db_node_set_col_mt(const dBGraph *graph,
 #define opposite_orientation(or) rev_orient(or)
 
 #define db_node_get_first_nuc(node,graph) \
-        bkmer_get_first_nuc(db_node_get_bkmer(graph,(node).key), (node).orient,\
+        bkmer_get_first_nuc(db_node_get_bkey(graph,(node).key), (node).orient,\
                             (graph)->kmer_size)
 
 #define db_node_get_last_nuc(node,graph) \
-        bkmer_get_last_nuc(db_node_get_bkmer(graph,(node).key), (node).orient,\
+        bkmer_get_last_nuc(db_node_get_bkey(graph,(node).key), (node).orient,\
                            (graph)->kmer_size)
 
 static inline dBNode db_node_reverse(dBNode node) {
@@ -202,12 +202,13 @@ bool edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 // 1=>A, 2=>C, 4=>G, 8=>T
 // "3b" => [AC] AACTA [ACT]
 // Null terminates string
-static inline void edges_to_char(Edges e, char str[3])
+static inline char* edges_to_char(Edges e, char str[3])
 {
   static const char digits[16] = "0123456789abcdef";
   str[0] = digits[edges_as_nibble(e, REVERSE)];
   str[1] = digits[edges_as_nibble(e, FORWARD)];
   str[2] = '\0';
+  return str;
 }
 
 static inline void edges_print(FILE *fout, Edges e)

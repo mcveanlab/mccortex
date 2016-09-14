@@ -30,6 +30,13 @@ madcrow_buffer(gfile_buf, GraphFileBuffer, GraphFileReader);
 // Returns 0 if not set instead of -1
 #define graph_file_nkmers(rdr) ((uint64_t)MAX2((rdr)->num_of_kmers, 0))
 
+// Get file offset of a given kmer
+static inline off_t graph_file_offset(const GraphFileReader *gfr, size_t i)
+{
+  size_t s = sizeof(BinaryKmer)+gfr->fltr.srcncols*(sizeof(Covg)+sizeof(Edges));
+  return gfr->hdr_size + s*i;
+}
+
 #define graph_file_is_buffered(file) ((file)->strm.b != NULL)
 int graph_file_fseek(GraphFileReader *file, off_t offset, int whence);
 off_t graph_file_ftell(GraphFileReader *file);

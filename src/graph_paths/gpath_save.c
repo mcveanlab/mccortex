@@ -81,7 +81,7 @@ cJSON* gpath_save_mkhdr(const char *path,
   cJSON_AddNumberToObject(json, "format_version", CTP_FORMAT_VERSION);
 
   // Add standard cortex header info, including the command being run
-  json_hdr_make_std(json, path, hdrs, nhdrs, db_graph);
+  json_hdr_make_std(json, path, hdrs, nhdrs, db_graph, db_graph->ht.num_kmers);
 
   // Get first command (this one), and command specific extra info
   if(cmdstr) {

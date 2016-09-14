@@ -145,7 +145,7 @@ static void graph_write_kmer_indirect(hkey_t hkey, const GraphFileHeader *hdr,
                                       size_t *num_dumped)
 {
   size_t i, into, from;
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+  BinaryKmer bkmer = db_node_get_bkey(db_graph, hkey);
   Covg covgs[hdr->num_of_cols], merge_covgs = 0;
   Edges edges[hdr->num_of_cols], merge_edges = 0;
 
@@ -289,7 +289,7 @@ static inline void _dump_empty_bkmer(hkey_t hkey, const dBGraph *db_graph,
                                      char *buf, size_t mem, FILE *fh)
 {
   size_t written;
-  const BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+  const BinaryKmer bkmer = db_node_get_bkey(db_graph, hkey);
   written = fwrite(bkmer.b, 1, sizeof(BinaryKmer), fh) +
             fwrite(buf, 1, mem, fh);
   if(written != mem+sizeof(BinaryKmer)) die("Couldn't write to file");

@@ -130,7 +130,7 @@ static void print_failed(dBNode node, const dBNodeBuffer *nbuf,
 {
   const size_t kmer_size = db_graph->kmer_size;
   char bkmerstr[MAX_KMER_SIZE+1];
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
+  BinaryKmer bkmer = db_node_get_bkey(db_graph, node.key);
   binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
   printf(">%s:%i %s %s\n", bkmerstr, node.orient,
          is_AB ? "A->B" : "B->C", prime_AB ? "prime_AB" : "walk_AB");

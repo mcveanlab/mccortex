@@ -9,7 +9,7 @@
 
 static void edge_check(hkey_t hkey, const dBGraph *db_graph, size_t col)
 {
-  const BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+  const BinaryKmer bkmer = db_node_get_bkey(db_graph, hkey);
   const Edges edges = db_node_get_edges(db_graph, hkey, col);
 
   dBNode nodes[4];

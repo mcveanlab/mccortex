@@ -44,8 +44,8 @@ void db_unitig_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
     return;
   }
 
-  BinaryKmer bkey0 = db_node_get_bkmer(db_graph, nlist[0].key);
-  BinaryKmer bkey1 = db_node_get_bkmer(db_graph, nlist[len-1].key);
+  BinaryKmer bkey0 = db_node_get_bkey(db_graph, nlist[0].key);
+  BinaryKmer bkey1 = db_node_get_bkey(db_graph, nlist[len-1].key);
 
   // Check if closed cycle
   if(db_unitig_is_closed_cycle(nlist[0], bkey0, nlist[len-1], bkey1, db_graph))
@@ -54,7 +54,7 @@ void db_unitig_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
     BinaryKmer lowest = bkey0, tmp;
     size_t i, lowidx = 0;
     for(i = 1; i < len; i++) {
-      tmp = db_node_get_bkmer(db_graph, nlist[i].key);
+      tmp = db_node_get_bkey(db_graph, nlist[i].key);
       if(binary_kmer_lt(tmp, lowest)) {
         lowest = tmp;
         lowidx = i;
@@ -87,7 +87,7 @@ void db_unitig_normalise(dBNode *nlist, size_t len, const dBGraph *db_graph)
 // Returns the number of nodes added, adds no more than `limit`
 // return false if out of space and limit > 0
 bool db_unitig_extend(dBNodeBuffer *nbuf, size_t limit,
-                   const dBGraph *db_graph)
+                      const dBGraph *db_graph)
 {
   ctx_assert(nbuf->len > 0);
 

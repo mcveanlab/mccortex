@@ -107,7 +107,7 @@ static void bubble_caller_print_header(gzFile gzout, const char* out_path,
   cJSON_AddNumberToObject(json, "format_version", BUBBLE_FORMAT_VERSION);
 
   // Add standard cortex headers
-  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph);
+  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph, db_graph->ht.num_kmers);
 
   // Add parameters used in bubble calling to the header
   json_hdr_augment_cmd(json, "bubbles", "max_flank_kmers",  cJSON_CreateInt(prefs->max_flank_len));
@@ -265,7 +265,7 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
   dBNode nodes[4];
   Nucleotide bases[4];
   size_t i, num_next, num_edges_in_col;
-  BinaryKmer fork_bkmer = db_node_get_bkmer(db_graph, fork_node.key);
+  BinaryKmer fork_bkmer = db_node_get_bkey(db_graph, fork_node.key);
 
   num_next = db_graph_next_nodes(db_graph, fork_bkmer, fork_node.orient,
                                  db_node_edges(db_graph, fork_node.key, 0),

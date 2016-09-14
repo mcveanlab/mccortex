@@ -260,7 +260,7 @@ uint8_t db_graph_next_nodes(const dBGraph *db_graph, const BinaryKmer node_bkey,
 uint8_t db_graph_next_nodes_union(const dBGraph *db_graph, dBNode node,
                                   dBNode nodes[4], Nucleotide fw_nucs[4])
 {
-  BinaryKmer bkey = db_node_get_bkmer(db_graph, node.key);
+  BinaryKmer bkey = db_node_get_bkey(db_graph, node.key);
   Edges edges = db_node_get_edges_union(db_graph, node.key);
   return db_graph_next_nodes(db_graph, bkey, node.orient, edges, nodes, fw_nucs);
 }
@@ -295,7 +295,7 @@ uint8_t db_graph_next_nodes_in_col(const dBGraph *db_graph,
   else
     edges = db_node_edges(db_graph, node.key, colour);
 
-  bkey = db_node_get_bkmer(db_graph, node.key);
+  bkey = db_node_get_bkey(db_graph, node.key);
 
   count = db_graph_next_nodes(db_graph, bkey, node.orient, edges,
                               nodes, fw_nucs);
@@ -350,7 +350,7 @@ uint8_t db_graph_prev_nodes_with_mask(const dBGraph *db_graph, dBNode node,
   ctx_assert(edges & prev_edge);
   edges &= ~prev_edge;
 
-  BinaryKmer bkey = db_node_get_bkmer(db_graph, node.key);
+  BinaryKmer bkey = db_node_get_bkey(db_graph, node.key);
 
   uint8_t i, j, num_prev;
 
@@ -403,7 +403,7 @@ static inline void check_node(hkey_t node, const dBGraph *db_graph,
                               bool *missing_edges_ptr)
 {
   Edges edges = db_node_get_edges_union(db_graph, node);
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
+  BinaryKmer bkmer = db_node_get_bkey(db_graph, node);
   size_t nfw_edges, nrv_edges, i, j;
   dBNode fwnodes[8], rvnodes[8];
   Nucleotide fwnucs[8], rvnucs[8];
@@ -582,7 +582,7 @@ static inline void add_all_edges(hkey_t node, dBGraph *db_graph)
 {
   const size_t kmer_size = db_graph->kmer_size, edgencols = db_graph->num_edge_cols;
   size_t col;
-  BinaryKmer bkmer, bkey, node_bkey = db_node_get_bkmer(db_graph, node);
+  BinaryKmer bkmer, bkey, node_bkey = db_node_get_bkey(db_graph, node);
   Orientation orient;
   Nucleotide nuc;
   hkey_t next;
@@ -720,7 +720,7 @@ void db_graph_print_kmer2(BinaryKmer bkmer, Covg *covgs, Edges *edges,
 
 void db_graph_print_kmer(hkey_t node, dBGraph *db_graph, FILE *fout)
 {
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node);
+  BinaryKmer bkmer = db_node_get_bkey(db_graph, node);
   Covg *covgs = &db_node_covg(db_graph, node, 0);
   Edges *edges = &db_node_edges(db_graph, node, 0);
 

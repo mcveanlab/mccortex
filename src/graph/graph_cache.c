@@ -81,13 +81,13 @@ static inline void gc_create_unitig(GraphCache *cache, dBNode node,
 
   // prev nodes
   union_edges = db_node_get_edges_union(db_graph, first.key);
-  bkmer0 = db_node_get_bkmer(db_graph, first.key);
+  bkmer0 = db_node_get_bkey(db_graph, first.key);
   num_prev = db_graph_next_nodes(db_graph, bkmer0, first.orient, union_edges,
                                  prev_nodes, prev_bases);
 
   // next nodes
   union_edges = db_node_get_edges_union(db_graph, last.key);
-  bkmer1 = db_node_get_bkmer(db_graph, last.key);
+  bkmer1 = db_node_get_bkey(db_graph, last.key);
   num_next = db_graph_next_nodes(db_graph, bkmer1, last.orient, union_edges,
                                  next_nodes, next_bases);
 

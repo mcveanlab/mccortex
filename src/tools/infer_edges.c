@@ -89,7 +89,7 @@ static inline int infer_edges_node(hkey_t hkey,
                                    const dBGraph *db_graph,
                                    size_t *num_nodes_modified)
 {
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+  BinaryKmer bkmer = db_node_get_bkey(db_graph, hkey);
   Edges *edges = &db_node_edges(db_graph, hkey, 0);
   size_t col;
 
