@@ -445,16 +445,18 @@ int ctx_server(int argc, char **argv)
   while(1)
   {
     fprintf(stdout, "> "); fflush(stdout);
-    if(futil_fcheck(strbuf_reset_readline(&line, stdin), stdin, "STDIN") == 0)
+    if(futil_fcheck(strbuf_reset_readline(&line, stdin), stdin, "STDIN") == 0) {
+      fprintf(stdout, "\n");
       break;
+    }
     strbuf_chomp(&line);
-    if(strcmp(line.b,"q") == 0) { break; }
-    else if(strcmp(line.b,"info") == 0) {
+    if(strcasecmp(line.b,"q") == 0 || strcasecmp(line.b,"quit") == 0) { break; }
+    else if(strcasecmp(line.b,"info") == 0) {
       fputs(info_txt, stdout);
       fputc('\n', stdout);
       fflush(stdout);
     }
-    else if(strcmp(line.b,"random") == 0) {
+    else if(strcasecmp(line.b,"random") == 0) {
       request_random(q, &response, pretty, disk, &db_graph);
       fputs(response.b, stdout);
       fflush(stdout);

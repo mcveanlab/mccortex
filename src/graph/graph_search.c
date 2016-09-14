@@ -103,7 +103,7 @@ bool graph_search_find(GraphFileSearch *gs, BinaryKmer bkey,
   long x = binary_search_index(bkey,gs->index,gs->nblocks);
   if(x < 0) return false;
   size_t blockstart = x*gs->blocksize;
-  size_t blockend = (size_t)x < gs->nblocks ? x+gs->blocksize : gs->nkmers;
+  size_t blockend = (size_t)x < gs->nblocks ? blockstart+gs->blocksize : gs->nkmers;
   if(!search_file_sec(gs, bkey, blockstart, blockend)) return false;
   if(edges || covgs) graph_file_read_covgs_edges(gs->file, covgs, edges);
   return true;
