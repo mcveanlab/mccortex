@@ -38,7 +38,8 @@ static inline off_t graph_file_offset(const GraphFileReader *gfr, size_t i)
 }
 
 #define graph_file_is_buffered(file) ((file)->strm.b != NULL)
-void graph_file_set_buffered(GraphFileReader *file, bool usebuf);
+// Buffer size `bufsize` is in bytes
+void graph_file_set_buffered(GraphFileReader *file, size_t bufsize);
 
 int graph_file_fseek(GraphFileReader *file, off_t offset, int whence);
 off_t graph_file_ftell(GraphFileReader *file);
@@ -81,9 +82,6 @@ bool graph_file_read(GraphFileReader *file,
 // prints warnings if dirty kmers in file
 bool graph_file_read_reset(GraphFileReader *file,
                            BinaryKmer *bkmer, Covg *covgs, Edges *edges);
-
-// Read coverages and edges only (no kmer)
-void graph_file_read_covgs_edges(GraphFileReader *f, Covg *covgs, Edges *edges);
 
 // Returns true if one or more files passed loads data into colour
 bool graph_file_is_colour_loaded(size_t colour, const GraphFileReader *files,

@@ -281,9 +281,6 @@ char* db_node_get_edges_str(Edges edges, char *kmer_col_edge_str);
 // Coverages
 //
 
-#define SAFE_ADD_COVG(a,b) ((uint64_t)(a)+(b) > COVG_MAX ? COVG_MAX : (a)+(b))
-#define SAFE_SUM_COVG(a,b) ((a) = SAFE_ADD_COVG((a), (b)))
-
 #define db_node_covg(graph,hkey,col) \
         ((graph)->col_covgs[(hkey)*(graph)->num_of_cols+(col)])
 
