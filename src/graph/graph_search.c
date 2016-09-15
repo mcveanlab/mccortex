@@ -100,7 +100,7 @@ static inline bool search_file_sec(GraphFileSearch *gs, BinaryKmer bkey,
 }
 
 bool graph_search_find(GraphFileSearch *gs, BinaryKmer bkey,
-                            Covg *covgs, Edges *edges)
+                       Covg *covgs, Edges *edges)
 {
   // Binary search on the index
   long x = binary_search_index(bkey,gs->index,gs->nblocks);
@@ -113,7 +113,7 @@ bool graph_search_find(GraphFileSearch *gs, BinaryKmer bkey,
 }
 
 void graph_search_fetch(GraphFileSearch *gs, size_t idx, BinaryKmer *bkey,
-                             Covg *covgs, Edges *edges)
+                        Covg *covgs, Edges *edges)
 {
   const size_t entsize = sizeof(BinaryKmer)+gs->ncols*(sizeof(Covg)+sizeof(Edges));
   graph_file_fseek(gs->file, gs->file->hdr_size+entsize*idx, SEEK_SET);
@@ -122,7 +122,7 @@ void graph_search_fetch(GraphFileSearch *gs, size_t idx, BinaryKmer *bkey,
 }
 
 void graph_search_rand(GraphFileSearch *gs,
-                            BinaryKmer *bkey, Covg *covgs, Edges *edges)
+                       BinaryKmer *bkey, Covg *covgs, Edges *edges)
 {
   size_t idx = (rand() / (double)RAND_MAX) * gs->nkmers;
   graph_search_fetch(gs, idx, bkey, covgs, edges);

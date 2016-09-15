@@ -24,7 +24,7 @@ const char server_usage[] =
 "  -n, --nkmers <kmers>  Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -p, --paths <in.ctp>  Load link file (can specify multiple times)\n"
 "  -S, --single-line     Reponses on a single line\n"
-"  -C, --coverages       Load per sample coverages\n"
+"  -C, --coverages       Load coverages for kmers+links\n"
 "  -E, --edges           Load per sample edges\n"
 "  -D, --disk            Read from disk (one graph only, must be sorted)\n"
 "\n";
@@ -50,14 +50,18 @@ typedef struct {
   BinaryKmer bkey;
   Covg *covgs;
   Edges *edges;
-  size_t ncovgs, nedges;
+  size_t ncols, nedges;
+  bool binary_covgs;
 } ServerQuery;
 
-static void query_alloc(ServerQuery *q, size_t ncovgs, size_t nedges) {
-  q->ncovgs = ncovgs;
-  q->covgs = ctx_calloc(q->ncovgs, sizeof(Covg));
-  q->nedges = nedges;
-  q->edges = ctx_calloc(q->nedges, sizeof(Edges));
+static void query_alloc(ServerQuery *q, size_t ncols,
+                        bool binary_covgs, bool flatten_edges)
+{
+  q->covgs = ctx_calloc(ncols, sizeof(Covg));
+  q->edges = ctx_calloc(ncols, sizeof(Edges));
+  q->ncols = ncols;
+  q->nedges = flatten_edges ? 1 : ncols;
+  q->binary_covgs = binary_covgs;
 }
 
 static void query_dealloc(ServerQuery *q) {
@@ -78,7 +82,7 @@ static inline void kmer_response(StrBuf *resp, ServerQuery q, bool pretty,
   strbuf_append_str(resp, keystr);
   strbuf_append_str(resp, "\", \"colours\": [");
   strbuf_append_ulong(resp, q.covgs[0]);
-  for(i = 1; i < q.ncovgs; i++) {
+  for(i = 1; i < q.ncols; i++) {
     strbuf_append_char(resp, ',');
     strbuf_append_ulong(resp, q.covgs[i]);
   }
@@ -144,6 +148,29 @@ static inline void kmer_response(StrBuf *resp, ServerQuery q, bool pretty,
   strbuf_append_str(resp, pretty ? "]\n}\n" : "] }\n");
 }
 
+static inline void query_fetch_from_graph(ServerQuery *q, const dBGraph *db_graph)
+{
+  size_t i;
+  for(i = 0; i < q->ncols; i++)
+    q->covgs[i] = db_graph->col_covgs ? db_node_get_covg(db_graph, q->node.key, i)
+                                      : db_node_has_col(db_graph, q->node.key, i);
+  for(i = 0; i < q->nedges; i++)
+    q->edges[i] = db_node_get_edges(db_graph, q->node.key, i);
+}
+
+static inline void query_fetch_from_disk(ServerQuery *q)
+{
+  size_t i;
+  // Convert coverage to binary if required
+  if(q->binary_covgs)
+    for(i = 0; i < q->ncols; i++)
+      q->covgs[i] = (q->covgs[i] > 0);
+  // Flatten edges if we aren't outputting per sample edges
+  if(q->nedges == 1)
+    for(i = 1; i < q->ncols; i++)
+      q->edges[0] |= q->edges[i];
+}
+
 /*
 // Query: ACACCAA
 {
@@ -168,7 +195,7 @@ static inline bool query_response(const char *qstr, ServerQuery q,
                                   StrBuf *resp, bool pretty,
                                   GraphFileSearch *disk, const dBGraph *db_graph)
 {
-  size_t i, qlen;
+  size_t qlen;
   strbuf_reset(resp);
 
   // query must be a kmer
@@ -197,15 +224,14 @@ static inline bool query_response(const char *qstr, ServerQuery q,
     // Fetch from graph
     q.node.key = hash_table_find(&db_graph->ht, q.bkey);
     if(q.node.key == HASH_NOT_FOUND) { strbuf_set(resp, "{}\n"); return true; }
-    for(i = 0; i < q.ncovgs; i++)
-      q.covgs[i] = db_graph->col_covgs ? db_node_get_covg(db_graph, q.node.key, i)
-                                       : db_node_has_col(db_graph, q.node.key, i);
-    for(i = 0; i < q.nedges; i++)
-      q.edges[i] = db_node_get_edges(db_graph, q.node.key, i);
+    query_fetch_from_graph(&q, db_graph);
   }
-  else if(!graph_search_find(disk, q.bkey, q.covgs, q.edges)) {
-    strbuf_set(resp, "{}\n");
-    return true;
+  else {
+    if(!graph_search_find(disk, q.bkey, q.covgs, q.edges)) {
+      strbuf_set(resp, "{}\n");
+      return true;
+    }
+    query_fetch_from_disk(&q);
   }
 
   kmer_response(resp, q, pretty, db_graph);
@@ -216,21 +242,17 @@ static inline bool query_response(const char *qstr, ServerQuery q,
 static inline void request_random(ServerQuery q, StrBuf *resp, bool pretty,
                                   GraphFileSearch *disk, const dBGraph *db_graph)
 {
-  size_t i;
   strbuf_reset(resp);
   if(disk == NULL) {
     q.node.key = db_graph_rand_node(db_graph, MAX_RANDOM_TRIES);
     if(q.node.key == HASH_NOT_FOUND) { strbuf_set(resp, "{}\n"); return; }
     q.node.orient = FORWARD;
     q.bkey = db_node_get_bkey(db_graph, q.node.key);
-    for(i = 0; i < q.ncovgs; i++)
-      q.covgs[i] = db_graph->col_covgs ? db_node_get_covg(db_graph, q.node.key, i)
-                                       : db_node_has_col(db_graph, q.node.key, i);
-    for(i = 0; i < q.nedges; i++)
-      q.edges[i] = db_node_get_edges(db_graph, q.node.key, i);
+    query_fetch_from_graph(&q, db_graph);
   }
   else {
     graph_search_rand(disk, &q.bkey, q.covgs, q.edges);
+    query_fetch_from_disk(&q);
   }
   kmer_response(resp, q, pretty, db_graph);
 }
@@ -266,8 +288,8 @@ int ctx_server(int argc, char **argv)
   gpfile_buf_alloc(&gpfiles, 8);
 
   bool pretty = true;
-  // Per sample coverage and edges
-  bool load_covgs = false, load_edges = false;
+  bool binary_covgs = true; // Binary coverage instead of full coverage
+  bool per_col_edges = false; // Load per sample or pooled edges
   bool use_disk = false;
 
   // Arg parsing
@@ -292,8 +314,8 @@ int ctx_server(int argc, char **argv)
       case 'm': cmd_mem_args_set_memory(&memargs, optarg); break;
       case 'n': cmd_mem_args_set_nkmers(&memargs, optarg); break;
       case 'S': cmd_check(pretty, cmd); pretty = false; break;
-      case 'C': cmd_check(!load_covgs, cmd); load_covgs = true; break;
-      case 'E': cmd_check(!load_edges, cmd); load_edges = true; break;
+      case 'C': cmd_check(binary_covgs, cmd); binary_covgs = false; break;
+      case 'E': cmd_check(!per_col_edges, cmd); per_col_edges = true; break;
       case 'D': cmd_check(!use_disk, cmd); use_disk = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
@@ -343,10 +365,9 @@ int ctx_server(int argc, char **argv)
   else
   {
     bits_per_kmer = sizeof(BinaryKmer)*8 + // kmer
-                    sizeof(Edges)*8 * (load_edges ? ncols : 1) + // edges
-                    sizeof(Covg)*8 * (load_covgs ? ncols : 0) + // covgs
-                    (gpfiles.len > 0 ? sizeof(GPath*)*8 : 0) + // links
-                    ncols; // in colour
+                    sizeof(Edges)*8 * (per_col_edges ? ncols : 1) + // edges
+                    (binary_covgs ? 1 : sizeof(Covg)*8) * ncols + // covgs
+                    (gpfiles.len > 0 ? sizeof(GPath*)*8 : 0); // links
 
     kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
                                           memargs.mem_to_use_set,
@@ -363,7 +384,7 @@ int ctx_server(int argc, char **argv)
       size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
       path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len,
                                       ncols, rem_mem,
-                                      load_covgs); // load path counts
+                                      !binary_covgs); // load path counts
 
       // Shift path store memory from graphs->paths
       graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -376,16 +397,18 @@ int ctx_server(int argc, char **argv)
   cmd_check_mem_limit(memargs.mem_to_use, total_mem);
 
   // Allocate memory
-  int allocflags = use_disk ? 0 : DBG_ALLOC_EDGES | DBG_ALLOC_NODE_IN_COL |
-                                  (load_covgs ? DBG_ALLOC_COVGS : 0);
+  int allocflags = DBG_ALLOC_EDGES | (binary_covgs ? DBG_ALLOC_NODE_IN_COL
+                                                   : DBG_ALLOC_COVGS);
+  if(use_disk) allocflags = 0;
+
   dBGraph db_graph;
   db_graph_alloc(&db_graph, gfiles[0].hdr.kmer_size,
-                 ncols, load_edges ? ncols : 1, kmers_in_hash,
+                 ncols, per_col_edges ? ncols : 1, kmers_in_hash,
                  allocflags);
 
   // Paths - allocates nothing if gpfiles.len == 0
   gpath_reader_alloc_gpstore(gpfiles.b, gpfiles.len,
-                             path_mem, load_covgs,
+                             path_mem, !binary_covgs,
                              &db_graph);
 
   //
@@ -438,7 +461,7 @@ int ctx_server(int argc, char **argv)
   bool success;
 
   ServerQuery q;
-  query_alloc(&q, db_graph.num_of_cols, db_graph.num_edge_cols);
+  query_alloc(&q, db_graph.num_of_cols, binary_covgs, !per_col_edges);
 
   // Read from input
   while(1)
