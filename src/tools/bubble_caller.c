@@ -107,7 +107,8 @@ static void bubble_caller_print_header(gzFile gzout, const char* out_path,
   cJSON_AddNumberToObject(json, "format_version", BUBBLE_FORMAT_VERSION);
 
   // Add standard cortex headers
-  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph, db_graph->ht.num_kmers);
+  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph,
+                    hash_table_nkmers(&db_graph->ht));
 
   // Add parameters used in bubble calling to the header
   json_hdr_augment_cmd(json, "bubbles", "max_flank_kmers",  cJSON_CreateInt(prefs->max_flank_len));

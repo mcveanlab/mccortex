@@ -22,7 +22,7 @@ static inline uint64_t db_node_hash(dBNode node) {
 // Get Binary kmers
 //
 static inline BinaryKmer db_node_get_bkey(const dBGraph *db_graph, hkey_t hkey) {
-  return db_graph->ht.table[hkey];
+  return hash_table_fetch(&db_graph->ht, hkey);
 }
 
 // Get an oriented bkmer

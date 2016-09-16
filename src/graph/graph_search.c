@@ -25,7 +25,7 @@ GraphFileSearch *graph_search_new(GraphFileReader *file)
   GraphFileSearch *gs = ctx_calloc(sizeof(GraphFileSearch), 1);
   gs->file = file;
   gs->nkmers = file->num_of_kmers;
-  gs->ncols = file->fltr.srcncols;
+  gs->ncols = file->hdr.num_of_cols;
   gs->entrysize = sizeof(BinaryKmer) + gs->ncols * (sizeof(Covg)+sizeof(Edges));
   gs->nblocks = MIN2(gs->nkmers, INDEX_SIZE);
   gs->blocksize = gs->nkmers / gs->nblocks;

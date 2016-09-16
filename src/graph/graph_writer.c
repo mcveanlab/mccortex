@@ -132,7 +132,7 @@ static inline void graph_write_kmer_direct(hkey_t hkey,
                                            FILE *fh, const dBGraph *db_graph)
 {
   graph_write_kmer(fh, hdr->num_of_cols,
-                   db_graph->ht.table[hkey],
+                   hash_table_fetch(&db_graph->ht, hkey),
                    &db_node_covg(db_graph, hkey, 0),
                    &db_node_edges(db_graph, hkey, 0));
 }
@@ -189,7 +189,7 @@ size_t graph_write_all_kmers_direct(FILE *fh, const dBGraph *db_graph,
     HASH_ITERATE(&db_graph->ht, graph_write_kmer_direct,
                  hdr, fh, db_graph);
   }
-  return db_graph->ht.num_kmers;
+  return hash_table_nkmers(&db_graph->ht);
 }
 
 size_t graph_write_all_kmers_filtered(FILE *fh, const dBGraph *db_graph,
@@ -311,7 +311,7 @@ static size_t graph_write_empty(const dBGraph *db_graph, FILE *fh,
   } else {
     HASH_ITERATE(&db_graph->ht, _dump_empty_bkmer, db_graph, buf, mem, fh);
   }
-  return db_graph->ht.num_kmers * (sizeof(BinaryKmer) + mem);
+  return hash_table_nkmers(&db_graph->ht) * (sizeof(BinaryKmer) + mem);
 }
 
 /*!
@@ -336,7 +336,7 @@ static void graph_writer_update_file_kmers(const dBGraph *db_graph,
   ctx_assert(db_graph->num_of_cols == db_graph->num_edge_cols);
   ctx_assert(first_graphcol+ngraphcols <= db_graph->num_of_cols);
 
-  // db_graph->ht.num_kmers is also the number of kmers in the file
+  // hash_table_nkmers(&db_graph->ht) is also the number of kmers in the file
   // We are just overwriting some of the coverages and edges for colours
   // first_filecol..(first_filecol+ngraphcols) not including last
   size_t max_block_size = 16 * ONE_MEGABYTE;
@@ -356,9 +356,9 @@ static void graph_writer_update_file_kmers(const dBGraph *db_graph,
 
   // Read block of kmers from the file
   // iterate over the hash table figuring which ones they are
-  while(nkmers_printed < db_graph->ht.num_kmers)
+  while(nkmers_printed < hash_table_nkmers(&db_graph->ht))
   {
-    nkmers = MIN2(db_graph->ht.num_kmers - nkmers_printed, kmers_per_block);
+    nkmers = MIN2(hash_table_nkmers(&db_graph->ht) - nkmers_printed, kmers_per_block);
     nbytes = nkmers*filekmersize;
     if(fread(mem, 1, nbytes, fh) != nbytes) die("Cannot read: %s", path);
     memptr = mem;
@@ -639,11 +639,11 @@ size_t graph_writer_merge(const char *out_ctx_path,
     file_filter_close(&origfltr);
 
     // Print output status
-    graph_writer_print_status(db_graph->ht.num_kmers, hdr->num_of_cols,
+    graph_writer_print_status(hash_table_nkmers(&db_graph->ht), hdr->num_of_cols,
                               out_ctx_path, hdr->version);
   }
 
-  return db_graph->ht.num_kmers;
+  return hash_table_nkmers(&db_graph->ht);
 }
 
 // if intersect_gname != NULL: only load kmers that are already in the hash table

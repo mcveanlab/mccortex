@@ -31,7 +31,7 @@ truth.tsv: beauty.fa beast.fa
 'my ($$N,$$H,$$T) = map {my ($$x) = ($$_ =~ /(\d+)/); $$x} ($$a,$$b,$$c); '\
 'print ".\tcol0\tcol1\n"; '\
 'print "col0\t$$H\t".max(min($$H,$$N)-max($$N-$$T,0),0)."\n"; '\
-'print "col1\t0\t$$T\n";' > $@
+'print "col1\t.\t$$T\n";' > $@
 
 dist.tsv: beauty.ctx beast.ctx
 	$(MCCORTEX) dist -q --out $@ beauty.ctx beast.ctx

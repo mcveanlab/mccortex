@@ -159,8 +159,8 @@ static void test_contig_ends_agree()
 
   // Check number of kmers in the graph
   size_t expnkmers = strlen(seqa)+1-kmer_size + 2+11+11;
-  TASSERT2(graph.ht.num_kmers == expnkmers,
-           "%zu vs %zu", (size_t)graph.ht.num_kmers, expnkmers);
+  TASSERT2(hash_table_nkmers(&graph.ht) == expnkmers,
+           "%zu vs %zu", hash_table_nkmers(&graph.ht), expnkmers);
 
   // Check number of paths
   TASSERT(graph.gpstore.num_paths == 8);

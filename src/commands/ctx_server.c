@@ -447,7 +447,7 @@ int ctx_server(int argc, char **argv)
   for(i = 0; i < gpfiles.len; i++) hdrs[i] = gpfiles.b[i].json;
 
   // Construct cJSON
-  size_t nkmers_in_graph = use_disk ? ctx_max_kmers : db_graph.ht.num_kmers;
+  size_t nkmers_in_graph = use_disk ? ctx_max_kmers : hash_table_nkmers(&db_graph.ht);
   char *info_txt = make_info_json_str(hdrs, gpfiles.len, pretty,
                                       nkmers_in_graph, &db_graph);
   ctx_free(hdrs);

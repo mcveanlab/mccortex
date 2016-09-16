@@ -13,12 +13,12 @@ static void run_subgraph(dBGraph *graph, uint8_t *mask,
 
   size_t nthreads = 2;
   subgraph_from_seq(graph, nthreads, dist, invert, grab_unitigs,
-                    8*graph->ht.num_kmers, mask,
+                    8*hash_table_nkmers(&graph->ht), mask,
                     &seq, &len, 1);
 
-  TASSERT2(graph->ht.num_kmers == expt_nkmers,
+  TASSERT2(hash_table_nkmers(&graph->ht) == expt_nkmers,
            "expected %zu kmers, got %zu; dist %zu invert: %s",
-           expt_nkmers, (size_t)graph->ht.num_kmers,
+           expt_nkmers, hash_table_nkmers(&graph->ht),
            dist, invert ? "yes" : "no");
 }
 
@@ -50,7 +50,8 @@ static void simple_subgraph_test()
 "AAAATTCACGATAGTGGCGCTCGGGAGGAGTACGCAACTCAGCACCCCGGTGAGTAGCTCCCTT";
 
   _tests_add_to_graph(&graph, graphseq, 0);
-  TASSERT2(graph.ht.num_kmers == 1000-19+1, "%"PRIu64" kmers", graph.ht.num_kmers);
+  TASSERT2(hash_table_nkmers(&graph.ht) == 1000-19+1,
+           "%zu kmers", hash_table_nkmers(&graph.ht));
 
   // Pull out 10, 9, ... 0 bases around 2 kmers: GAGGTGGGTCCGCCTTGCGGt
   size_t dist;

@@ -553,7 +553,8 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   cJSON_AddNumberToObject(json, "format_version", BREAKPOINT_FORMAT_VERSION);
 
   // Add standard cortex headers
-  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph, db_graph->ht.num_kmers);
+  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph,
+                    hash_table_nkmers(&db_graph->ht));
 
   // Update reference colour
   // json.graph.colours[ref_col]

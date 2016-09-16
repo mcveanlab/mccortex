@@ -677,10 +677,9 @@ void db_graph_intersect_edges(dBGraph *db_graph, size_t nthreads, Edges *edges)
 // if ntries > 0 and we fail to find a node will return HASH_NOT_FOUND
 hkey_t db_graph_rand_node(const dBGraph *db_graph, size_t ntries)
 {
-  uint64_t capacity = db_graph->ht.capacity;
-  BinaryKmer *table = db_graph->ht.table;
+  const HashTable *ht = &db_graph->ht;
+  size_t i, capacity = hash_table_size(ht);
   hkey_t hkey;
-  size_t i;
 
   if(capacity == 0) {
     warn("No entries in hash table - cannot select random");
@@ -690,7 +689,7 @@ hkey_t db_graph_rand_node(const dBGraph *db_graph, size_t ntries)
   for(i = 0; i < ntries; i++)
   {
     hkey = (hkey_t)((rand() / (double)RAND_MAX) * capacity);
-    if(HASH_ENTRY_ASSIGNED(table[hkey])) return hkey;
+    if(hash_table_assigned(ht, hkey)) return hkey;
   }
 
   return HASH_NOT_FOUND;

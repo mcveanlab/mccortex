@@ -9,11 +9,7 @@
 // Hash table prefetching doesn't appear to be faster
 // #define HASH_PREFETCH 1
 
-static const BinaryKmer unset_bkmer = {.b = {UNSET_BKMER_WORD}};
-
 #define ht_bckt_ptr(ht,bckt) ((ht)->table + (size_t)bckt * (ht)->bucket_size)
-#define hash_table_bsize(ht,bkt) ((ht)->buckets[bkt][HT_BSIZE])
-#define hash_table_bitems(ht,bkt) ((ht)->buckets[bkt][HT_BITEMS])
 #define hash_table_bsize_mt(ht,bkt) (*(volatile uint8_t*)&ht->buckets[bkt][HT_BSIZE])
 #define hash_table_bitems_mt(ht,bkt) (*(volatile uint8_t*)&ht->buckets[bkt][HT_BITEMS])
 
@@ -38,11 +34,8 @@ void hash_table_alloc(HashTable *ht, uint64_t req_capacity)
 
   // calloc is required for bucket_data to set the first element of each bucket
   // to the 0th pos
-  BinaryKmer *table = ctx_malloc(capacity * sizeof(BinaryKmer));
+  BinaryKmer *table = ctx_calloc(capacity, sizeof(BinaryKmer));
   uint8_t (*const buckets)[2] = ctx_calloc(num_of_buckets, sizeof(uint8_t[2]));
-
-  size_t i;
-  for(i = 0; i < capacity; i++) table[i] = unset_bkmer;
 
   HashTable data = {
     .table = table,
@@ -66,9 +59,7 @@ void hash_table_dealloc(HashTable *hash_table)
 
 void hash_table_empty(HashTable *const ht)
 {
-  size_t i;
-  BinaryKmer *table = ht->table;
-  for(i = 0; i < ht->capacity; i++) table[i] = unset_bkmer;
+  memset(ht->table, 0, ht->capacity * sizeof(BinaryKmer));
   memset(ht->buckets, 0, ht->num_of_buckets * sizeof(uint8_t[2]));
 
   HashTable data = {
@@ -86,10 +77,11 @@ void hash_table_empty(HashTable *const ht)
 
 static inline const BinaryKmer* hash_table_find_in_bucket(const HashTable *const ht,
                                                           uint_fast32_t bucket,
-                                                          const BinaryKmer bkmer)
+                                                          BinaryKmer bkmer)
 {
   const BinaryKmer *ptr = ht_bckt_ptr(ht, bucket);
   const BinaryKmer *end = ptr + hash_table_bsize(ht, bucket);
+  bkmer.b[0] |= BKMER_SET_FLAG; // mark as assigned in the hash table
 
   while(ptr < end) {
     if(binary_kmer_eq(bkmer, *ptr)) return ptr;
@@ -98,31 +90,17 @@ static inline const BinaryKmer* hash_table_find_in_bucket(const HashTable *const
   return NULL; // Not found
 }
 
-// static inline const BinaryKmer* hash_table_find_in_bucket_mt(const HashTable *const ht,
-//                                                              uint_fast32_t bucket,
-//                                                              const BinaryKmer bkmer)
-// {
-//   const BinaryKmer *ptr = ht_bckt_ptr(ht, bucket);
-//   const BinaryKmer *end = ptr + hash_table_bsize_mt(ht, bucket);
-
-//   while(ptr < end) {
-//     BinaryKmer tgt = *(volatile const BinaryKmer*)ptr;
-//     if(binary_kmer_eq(bkmer, tgt)) return ptr;
-//     ptr++;
-//   }
-//   return NULL; // Not found
-// }
-
 // Remember to increment ht->num_kmers
 static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *ht,
                                                       uint_fast32_t bucket,
-                                                      const BinaryKmer bkmer)
+                                                      BinaryKmer bkmer)
 {
   size_t bsize = hash_table_bsize(ht, bucket);
   size_t bitems = hash_table_bitems(ht, bucket);
   ctx_assert(bitems < ht->bucket_size);
   ctx_assert(bitems <= bsize);
   BinaryKmer *ptr = ht_bckt_ptr(ht, bucket);
+  bkmer.b[0] |= BKMER_SET_FLAG; // mark as assigned in the hash table
 
   if(bitems == bsize) {
     ptr += bsize;
@@ -137,30 +115,6 @@ static inline BinaryKmer* hash_table_insert_in_bucket(HashTable *ht,
   ht->buckets[bucket][HT_BITEMS]++;
   return ptr;
 }
-
-// static inline BinaryKmer* hash_table_insert_in_bucket_mt(HashTable *ht,
-//                                                          uint_fast32_t bucket,
-//                                                          const BinaryKmer bkmer)
-// {
-//  size_t bsize = hash_table_bsize_mt(ht, bucket);
-//  size_t bitems = hash_table_bitems_mt(ht, bucket);
-//   ctx_assert(bitems < ht->bucket_size);
-//   ctx_assert(bitems <= bsize);
-//   BinaryKmer *ptr = ht_bckt_ptr(ht, bucket);
-
-//   if(bitems == bsize) {
-//     ptr += bsize;
-//     __sync_add_and_fetch((volatile uint8_t*)&ht->buckets[bucket][HT_BSIZE], 1);
-//   }
-//   else {
-//     // Find an entry that has been deleted from this bucket previously
-//     while(HASH_ENTRY_ASSIGNED(*ptr)) ptr++;
-//   }
-
-//   *ptr = bkmer;
-//   __sync_add_and_fetch((volatile uint8_t*)&ht->buckets[bucket][HT_BITEMS], 1);
-//   return ptr;
-// }
 
 #define rehash_error_exit(ht) do { \
   ctx_msg_out = stderr; \
@@ -335,7 +289,7 @@ void hash_table_delete(HashTable *const ht, hkey_t pos)
   ctx_assert(pos != HASH_NOT_FOUND);
   ctx_assert(HASH_ENTRY_ASSIGNED(ht->table[pos]));
 
-  ht->table[pos] = unset_bkmer;
+  memset(ht->table+pos, 0, sizeof(BinaryKmer));
   n = __sync_fetch_and_sub((volatile uint64_t *)&ht->num_kmers, 1);
   m = __sync_fetch_and_sub((volatile uint8_t *)&ht->buckets[bucket][HT_BITEMS], 1);
 
@@ -358,10 +312,10 @@ void hash_table_print_stats_brief(const HashTable *const ht)
   ulong_to_str(ht->capacity, capacity_str);
   ulong_to_str(ht->num_kmers, num_entries_str);
 
-  status("[hasht] buckets: %s [2^%zu]; bucket size: %zu; "
-         "memory: %s; occupancy: %s / %s (%.2f%%)\n",
-         num_buckets_str, nkeybits, (size_t)ht->bucket_size, mem_str,
-         num_entries_str, capacity_str, occupancy);
+  status("[hasht] buckets: %s [2^%zu]; bucket size: %zu; ",
+         num_buckets_str, nkeybits, (size_t)ht->bucket_size);
+  status("[hasht] memory: %s; filled: %s / %s (%.2f%%)\n",
+         mem_str, num_entries_str, capacity_str, occupancy);
 }
 
 void hash_table_print_stats(const HashTable *const ht)
@@ -413,6 +367,7 @@ hkey_t* hash_table_sorted(const HashTable *htable)
   nxt = kmers = ctx_malloc(sizeof(BkmerPtrHkeyUnion) * htable->num_kmers);
   end = kmers + htable->num_kmers;
   HASH_ITERATE(htable, _fetch_kmer_union, htable, &nxt);
+  // Can sort ignoring that the top flag bit is set on all kmers
   qsort(kmers, htable->num_kmers, sizeof(BinaryKmer*), binary_kmers_qcmp_ptrs);
   for(nxt = kmers; nxt < end; nxt++) nxt->h = nxt->bptr - htable->table;
   return (hkey_t*)kmers;

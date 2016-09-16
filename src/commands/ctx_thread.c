@@ -248,7 +248,7 @@ int ctx_thread(int argc, char **argv)
   correct_aln_dump_stats(aln_stats, load_stats,
                          args.dump_seq_sizes,
                          args.dump_frag_sizes,
-                         db_graph.ht.num_kmers);
+                         hash_table_nkmers(&db_graph.ht));
 
   // Don't need GPathHash anymore
   gpath_hash_dealloc(&db_graph.gphash);

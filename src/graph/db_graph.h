@@ -56,7 +56,7 @@ typedef struct
 } dBGraph;
 
 #define db_graph_has_path_hash(graph) ((graph)->gphash.table != NULL)
-#define db_graph_node_assigned(graph,hkey) HASH_ENTRY_ASSIGNED((graph)->ht.table[hkey])
+#define db_graph_node_assigned(graph,hkey) hash_table_assigned(&(graph)->ht, hkey)
 
 // alloc_flags specifies where fields to malloc. OR together DBG_ALLOC_* values
 void db_graph_alloc(dBGraph *db_graph, size_t kmer_size,
