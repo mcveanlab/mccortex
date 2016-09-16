@@ -217,6 +217,18 @@ void gpath_reader_close(GPathReader *file)
   memset(file, 0, sizeof(GPathReader));
 }
 
+void gpath_reader_count_kmers(GPathReader *rdrs, size_t nreaders,
+                              size_t *max_kmers_ptr, size_t *sum_kmers_ptr)
+{
+  size_t i, n, max_kmers = 0, sum_kmers = 0;
+  for(i = 0; i < nreaders; i++) {
+    n = gpath_reader_get_num_kmers(&rdrs[i]);
+    max_kmers = MAX2(n, max_kmers);
+    sum_kmers += n;
+  }
+  *max_kmers_ptr = max_kmers;
+  *sum_kmers_ptr = sum_kmers;
+}
 
 void gpath_reader_check(const GPathReader *file, size_t db_kmer_size,
                         size_t db_ncols)

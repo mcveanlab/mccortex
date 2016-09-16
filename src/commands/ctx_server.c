@@ -336,10 +336,14 @@ int ctx_server(int argc, char **argv)
   ctx_assert(num_gfiles > 0);
 
   GraphFileReader *gfiles = ctx_calloc(num_gfiles, sizeof(GraphFileReader));
-  size_t i, ncols, ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  size_t i, ncols;
+  size_t ctx_max_kmers = 0, ctx_sum_kmers = 0;
+  size_t ctp_max_kmers = 0, ctp_sum_kmers = 0;
 
   ncols = graph_files_open(graph_paths, gfiles, num_gfiles,
                            &ctx_max_kmers, &ctx_sum_kmers);
+
+  gpath_reader_count_kmers(gpfiles.b, gpfiles.len, &ctp_max_kmers, &ctp_sum_kmers);
 
   // Check graph + paths are compatible
   graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.b, gpfiles.len, -1);
@@ -374,8 +378,8 @@ int ctx_server(int argc, char **argv)
                                           memargs.num_kmers,
                                           memargs.num_kmers_set,
                                           bits_per_kmer,
-                                          use_disk ? 0 : ctx_max_kmers,
-                                          ctx_sum_kmers,
+                                          use_disk ? ctp_max_kmers : ctx_max_kmers,
+                                          use_disk ? ctp_sum_kmers : ctx_sum_kmers,
                                           false, &graph_mem);
 
     if(gpfiles.len)
