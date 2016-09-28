@@ -57,6 +57,10 @@ def dna_key(s):
   r = reverse_complement(s)
   return s if s <= r else r
 
+# given a string s and kmer size `k`, return a list of the kmers (contains dups)
+def kmers(s,k):
+  return [ s[i:i+k] for i in range(len(s)-k+1) ]
+
 def load_fasta(path):
   """
   Load all chromosomes from a FASTA file.

@@ -37,30 +37,22 @@ fi
 kmer=$1
 shift
 
-maxk=$[ ( ($kmer + 31) / 32 ) * 32 - 1 ]
-
-if [[ $[ $kmer & 1 ] -eq 0 || $kmer -lt 3 ]]
+DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
+MCCORTEX="$DIR/bin/mccortex"
+CTX2GRAPHVIZ="$DIR/scripts/cortex_to_graphviz.pl"
+if [[ !(-e $MCCORTEX) || !(-x $MCCORTEX) ]]
 then
-  echo kmer is not odd and greater than 2
-  exit -1
-fi
-
-DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
-CTX="$DIR/../bin/ctx$maxk"
-CTX2GRAPHVIZ="$DIR/cortex_to_graphviz.pl"
-if [[ !(-e $CTX) || !(-x $CTX) ]]
-then
-  echo "Did you compile for MAXK=$maxk? I cannot run $CTX"
+  echo "Did you compile McCortex? I cannot run `$MCCORTEX`"
   exit -1
 fi
 
 files=$(printf " --seq %s" $@; printf "\n")
 
 if [[ $mkpdf == 1 ]]; then
-  $CTX build -q -k $kmer --sample seq2pdf $files - | \
+  $MCCORTEX $kmer build -q -k $kmer --sample seq2pdf $files - | \
     $CTX2GRAPHVIZ -k $kmer $script_args - | \
     dot -Tpdf
 else
-  $CTX build -q -k $kmer --sample seq2pdf $files - | \
+  $MCCORTEX $kmer build -q -k $kmer --sample seq2pdf $files - | \
     $CTX2GRAPHVIZ -k $kmer $script_args -
 fi

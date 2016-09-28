@@ -17,6 +17,12 @@ fi
 K=$1
 shift
 
+if [[ $[ $K & 1 ] -eq 0 || $K -lt 3 ]]
+then
+  echo "kmer is not odd and greater than 2: $K" >&2
+  exit -1
+fi
+
 MAXK=$[ (($K+31)/32)*32 - 1 ]
 PARENTDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 CMD=$PARENTDIR/bin/mccortex$MAXK
