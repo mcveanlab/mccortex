@@ -152,15 +152,13 @@ static void process_contig(BreakpointCaller *caller,
 
   // status("  got a call");
 
-  // Find first place we meet the ref
-  size_t callid = __sync_fetch_and_add((volatile size_t*)caller->callid, 1);
-
   // Swallow up some of the path into the 3p flank
   size_t i, flank3pidx = flank3p_runs[0].qoffset;
   size_t extra3pbases = MIN2(kmer_size-1, flank3pidx);
   size_t num_path_kmers = flank3pidx - extra3pbases;
   size_t kmer3poffset = kmer_size-1-extra3pbases;
 
+  size_t callid = __sync_fetch_and_add((volatile size_t*)caller->callid, 1);
   pthread_mutex_lock(caller->out_lock);
 
   // This can be set to anything without a '.' in it

@@ -24,7 +24,7 @@ SHELL:=/bin/bash -euo pipefail
 #
 
 K=11
-CTXDIR=../..
+CTXDIR=../../..
 MCCORTEX=$(CTXDIR)/bin/mccortex31
 CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
 BRKCHCK=$(CTXDIR)/scripts/cortex_brkpnts_check_ref.pl
