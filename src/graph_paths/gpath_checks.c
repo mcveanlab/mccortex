@@ -444,7 +444,7 @@ void gpath_checks_counts(const dBGraph *db_graph)
   HASH_ITERATE(&db_graph->ht, _gpstore_update_counts,
                db_graph, &nvisited, &nkmers, &npaths);
 
-  ctx_assert2(nvisited == hash_table_nkmers(&db_graph->ht), "%zu vs %zu",
+  ctx_assert2(nvisited == hash_table_nkmers(&db_graph->ht), "%zu vs %llu",
               nvisited, hash_table_nkmers(&db_graph->ht));
   ctx_assert2(nkmers == gpstore->num_kmers_with_paths, "%zu vs %zu",
               nkmers, (size_t)gpstore->num_kmers_with_paths);

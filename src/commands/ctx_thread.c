@@ -139,7 +139,8 @@ int ctx_thread(int argc, char **argv)
 
   // Paths memory
   size_t min_path_mem = 0;
-  gpath_reader_sum_mem(gpfiles->b, gpfiles->len, 1, true, true, &min_path_mem);
+  gpath_reader_sum_mem(gpfiles->b, gpfiles->len, 1, true, true,
+                       &min_path_mem, NULL, NULL);
 
   if(graph_mem + min_path_mem > args.memargs.mem_to_use) {
     char buf[50];

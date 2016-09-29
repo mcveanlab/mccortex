@@ -712,10 +712,12 @@ void gpath_reader_max_mem_req(GPathReader *files, size_t nfiles,
 
 size_t gpath_reader_sum_mem(GPathReader *files, size_t nfiles,
                             size_t ncols, bool count_nseen, bool use_gphash,
-                            size_t *max_file_mem_ptr)
+                            size_t *max_file_mem_ptr,
+                            size_t *sum_npaths_ptr, size_t *max_npaths_ptr)
 {
   size_t i, npaths, path_bytes, file_mem;
-  size_t path_sum_mem = 0, max_file_mem = 0;
+  size_t sum_file_mem = 0, max_file_mem = 0;
+  size_t max_npaths = 0, sum_npaths = 0;
 
   for(i = 0; i < nfiles; i++)
   {
@@ -723,34 +725,45 @@ size_t gpath_reader_sum_mem(GPathReader *files, size_t nfiles,
     path_bytes = gpath_reader_get_path_bytes(&files[i]);
     file_mem = npaths * sizeof(GPath) + // GPath
                path_bytes + // Sequence
-               npaths * (ncols+7)/8 + // Colset
+               npaths * roundup_bits2bytes(ncols) + // Colset
                npaths * (count_nseen ? ncols*sizeof(uint8_t) + sizeof(uint32_t) : 0) +
                (npaths/IDEAL_OCCUPANCY) * (use_gphash ? sizeof(GPEntry) : 0);
 
-    path_sum_mem += file_mem;
+    sum_npaths += npaths;
+    max_npaths = MAX2(max_npaths, npaths);
+    sum_file_mem += file_mem;
     max_file_mem = MAX2(max_file_mem, file_mem);
   }
 
+  if(sum_npaths_ptr) *sum_npaths_ptr = sum_npaths;
+  if(max_npaths_ptr) *max_npaths_ptr = max_npaths;
   if(max_file_mem_ptr) *max_file_mem_ptr = max_file_mem;
 
-  return path_sum_mem;
+  return sum_file_mem;
 }
 
 size_t gpath_reader_mem_req(GPathReader *files, size_t nfiles,
                             size_t ncols, size_t max_mem,
-                            bool count_nseen)
+                            bool count_nseen,
+                            size_t graph_capacity, bool split_linked_lists)
 {
-  size_t max_file_mem = 0, path_sum_mem;
-  path_sum_mem = gpath_reader_sum_mem(files, nfiles, ncols, count_nseen, false,
-                                      &max_file_mem);
+  size_t max_file_mem = 0, sum_file_mem;
+  size_t gpstore_mem = gpath_store_mem(graph_capacity, split_linked_lists);
+  status("graph_capacity:%zu gpstore_mem:%zu", graph_capacity, gpstore_mem);
+  sum_file_mem = gpath_reader_sum_mem(files, nfiles, ncols, count_nseen, false,
+                                      &max_file_mem, NULL, NULL);
 
-  if(max_file_mem > max_mem) {
+  size_t min_mem_req = gpstore_mem + max_file_mem;
+  size_t max_mem_req = gpstore_mem + sum_file_mem;
+  size_t suggested_mem = min_mem_req + (size_t)((max_mem_req-min_mem_req)*0.2);
+
+  if(min_mem_req > max_mem) {
     char memstr[50];
-    bytes_to_str(max_file_mem, 1, memstr);
+    bytes_to_str(min_mem_req, 1, memstr);
     die("Require at least %s memory for paths", memstr);
   }
 
-  return MIN2(max_mem, path_sum_mem);
+  return MIN2(max_mem, suggested_mem);
 }
 
 void gpath_reader_alloc_gpstore(GPathReader *files, size_t nfiles,
@@ -759,23 +772,13 @@ void gpath_reader_alloc_gpstore(GPathReader *files, size_t nfiles,
 {
   if(nfiles == 0) return;
 
-  size_t sum_mem = gpath_reader_sum_mem(files, nfiles, db_graph->num_of_cols,
-                                        count_nseen, false, NULL);
+  size_t sum_mem, max_mem = 0, sum_npaths = 0, max_npaths = 0;
+  sum_mem = gpath_reader_sum_mem(files, nfiles, db_graph->num_of_cols,
+                                 count_nseen, false, &max_mem,
+                                 &sum_npaths, &max_npaths);
 
-  size_t i, npaths, max_npaths = 0, sum_npaths = 0;
-  size_t path_bytes, sum_path_bytes = 0;
-
-  for(i = 0; i < nfiles; i++) {
-    npaths = gpath_reader_get_num_paths(&files[i]);
-    max_npaths = MAX2(max_npaths, npaths);
-    sum_npaths += npaths;
-    path_bytes = gpath_reader_get_path_bytes(&files[i]) +
-                 npaths * roundup_bits2bytes(db_graph->num_of_cols);
-    sum_path_bytes += path_bytes;
-  }
-
-  npaths = sum_mem <= mem ? sum_npaths : 0;
-  status("[GPathReader] need %zu paths %zu bytes", npaths, sum_path_bytes);
+  size_t npaths = sum_mem <= mem ? sum_npaths : max_npaths;
+  status("[GPathReader] need %zu sum mem: %zu bytes", npaths, sum_mem);
 
   gpath_store_alloc(&db_graph->gpstore,
                     db_graph->num_of_cols,

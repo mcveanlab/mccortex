@@ -388,7 +388,8 @@ int ctx_server(int argc, char **argv)
       size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
       path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len,
                                       ncols, rem_mem,
-                                      !binary_covgs); // load path counts
+                                      !binary_covgs, // load path counts
+                                      kmers_in_hash, false);
 
       // Shift path store memory from graphs->paths
       graph_mem -= sizeof(GPath*)*kmers_in_hash;

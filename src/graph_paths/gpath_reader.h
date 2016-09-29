@@ -117,11 +117,13 @@ void gpath_reader_max_mem_req(GPathReader *files, size_t nfiles,
 // sets @max_file_mem_ptr to the max for a single file memory
 size_t gpath_reader_sum_mem(GPathReader *files, size_t nfiles,
                             size_t ncols, bool count_nseen, bool use_gphash,
-                            size_t *max_file_mem_ptr);
+                            size_t *max_file_mem_ptr,
+                            size_t *sum_npaths_ptr, size_t *max_npaths_ptr);
 
 size_t gpath_reader_mem_req(GPathReader *files, size_t nfiles,
                             size_t ncols, size_t max_mem,
-                            bool count_nseen);
+                            bool count_nseen,
+                            size_t graph_capacity, bool split_linked_lists);
 
 void gpath_reader_alloc_gpstore(GPathReader *files, size_t nfiles,
                                 size_t mem, bool count_nseen,
