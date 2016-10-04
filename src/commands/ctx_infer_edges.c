@@ -303,11 +303,11 @@ int ctx_infer_edges(int argc, char **argv)
 
   char modified_str[100], kmers_str[100];
   ulong_to_str(num_kmers_edited, modified_str);
-  ulong_to_str(db_graph.ht.num_kmers, kmers_str);
+  ulong_to_str(hash_table_nkmers(&db_graph.ht), kmers_str);
 
   double modified_rate = 0;
-  if(db_graph.ht.num_kmers)
-    modified_rate = (100.0 * num_kmers_edited) / db_graph.ht.num_kmers;
+  if(hash_table_nkmers(&db_graph.ht))
+    modified_rate = (100.0 * num_kmers_edited) / hash_table_nkmers(&db_graph.ht);
 
   status("%s of %s (%.2f%%) nodes modified\n",
          modified_str, kmers_str, modified_rate);

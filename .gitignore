@@ -10,6 +10,7 @@
 *.RData
 *.Rhistory
 *.DS_Store
+*.pyc
 
 /commit.txt
 /notes.txt

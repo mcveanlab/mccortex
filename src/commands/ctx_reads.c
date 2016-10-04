@@ -40,6 +40,7 @@ static struct option longopts[] =
   {"force",        no_argument,       NULL, 'f'},
   {"memory",       required_argument, NULL, 'm'},
   {"nkmers",       required_argument, NULL, 'n'},
+  {"threads",      required_argument, NULL, 't'},
 // command specific
   {"format",       required_argument, NULL, 'F'},
   {"invert",       no_argument,       NULL, 'v'},

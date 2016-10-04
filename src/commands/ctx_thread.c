@@ -24,8 +24,8 @@ const char thread_usage[] =
 "  -n, --nkmers <N>         Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>        Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -p, --paths <in.ctp>     Load link file (can specify multiple times)\n"
-"  -0, --zero-paths         Zero counts on initially loaded paths. Use if existing\n"
-"                           paths were built from sequence being re-used by this run\n"
+"  -0, --zero-paths         Zero counts on initially loaded links. Use if existing\n"
+"                           links were built from sequence being re-used by this run\n"
 "\n"
 "  Input:\n"
 "  -1, --seq <in.fa>        Thread reads from file (supports sam,bam,fq,*.gz\n"
@@ -38,7 +38,7 @@ const char thread_usage[] =
 "  -l, --min-frag-len <bp>  Min fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MIN)"]\n"
 "  -L, --max-frag-len <bp>  Max fragment size for --seq2 [default:"QUOTE_VALUE(DEFAULT_CRTALN_FRAGLEN_MAX)"]\n"
 "\n"
-"  Path Params:\n"
+"  Link Params:\n"
 "  -w, --one-way            Use one-way gap filling (conservative) [default]\n"
 "  -W, --two-way            Use two-way gap filling (liberal)\n"
 "  -d, --gap-diff-const <d> Set parameters for allowable gap lengths (decimals):\n"
@@ -49,12 +49,12 @@ const char thread_usage[] =
 "  -g, --gap-hist <o.csv>   Save size distribution of sequence gaps bridged\n"
 "  -G, --frag-hist <o.csv>  Save size distribution of PE fragments\n"
 "\n"
-"  -u, --use-new-paths      Use paths as they are being added (higher err rate) [default: no]\n"
+"  -u, --use-new-paths      Use links as they are being added (higher err rate) [default: no]\n"
 "\n"
 "  Debugging Options: Probably best not to touch these\n"
 "    -x,--print-contigs -y,--print-paths -z,--print-reads\n"
 "\n"
-"  When loading existing paths with -p, use offset (e.g. 2:in.ctp) to specify\n"
+"  When loading existing links with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into. See `"CMD" pjoin` to combine .ctp files\n"
 "\n";
 
@@ -139,7 +139,8 @@ int ctx_thread(int argc, char **argv)
 
   // Paths memory
   size_t min_path_mem = 0;
-  gpath_reader_sum_mem(gpfiles->b, gpfiles->len, 1, true, true, &min_path_mem);
+  gpath_reader_sum_mem(gpfiles->b, gpfiles->len, 1, true, true,
+                       &min_path_mem, NULL, NULL);
 
   if(graph_mem + min_path_mem > args.memargs.mem_to_use) {
     char buf[50];
@@ -248,7 +249,7 @@ int ctx_thread(int argc, char **argv)
   correct_aln_dump_stats(aln_stats, load_stats,
                          args.dump_seq_sizes,
                          args.dump_frag_sizes,
-                         db_graph.ht.num_kmers);
+                         hash_table_nkmers(&db_graph.ht));
 
   // Don't need GPathHash anymore
   gpath_hash_dealloc(&db_graph.gphash);

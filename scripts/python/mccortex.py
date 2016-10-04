@@ -49,13 +49,17 @@ def quack():
 def reverse_complement(s):
   complement = {'A': 'T', 'C': 'G', 'G': 'C', 'T': 'A', \
                 'a': 't', 'c': 'g', 'g': 'c', 't': 'a'}
-  bases = list(s) # get returns the base if not in dict
-  bases = reversed([complement.get(base,base) for base in bases])
+  # get returns the base if not in dict
+  bases = reversed([complement.get(b,b) for b in s])
   return ''.join(bases)
 
 def dna_key(s):
   r = reverse_complement(s)
   return s if s <= r else r
+
+# given a string s and kmer size `k`, return a list of the kmers (contains dups)
+def kmers(s,k):
+  return [ s[i:i+k] for i in range(len(s)-k+1) ]
 
 def load_fasta(path):
   """

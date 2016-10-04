@@ -367,10 +367,10 @@ int ctx_clean(int argc, char **argv)
   }
 
   char num_kmers_str[100];
-  ulong_to_str(db_graph.ht.num_kmers, num_kmers_str);
+  ulong_to_str(hash_table_nkmers(&db_graph.ht), num_kmers_str);
   status("[cleaning] Total kmers loaded: %s\n", num_kmers_str);
 
-  size_t initial_nkmers = db_graph.ht.num_kmers;
+  size_t initial_nkmers = hash_table_nkmers(&db_graph.ht);
   hash_table_print_stats(&db_graph.ht);
 
   uint8_t *visited = ctx_calloc(roundup_bits2bytes(db_graph.ht.capacity), 1);
@@ -443,7 +443,7 @@ int ctx_clean(int argc, char **argv)
     }
 
     // Print stats on removed kmers
-    size_t removed_nkmers = initial_nkmers - db_graph.ht.num_kmers;
+    size_t removed_nkmers = initial_nkmers - hash_table_nkmers(&db_graph.ht);
     double removed_pct = (100.0 * removed_nkmers) / initial_nkmers;
     char removed_str[100], init_str[100];
     ulong_to_str(removed_nkmers, removed_str);
@@ -457,7 +457,7 @@ int ctx_clean(int argc, char **argv)
                        sort_kmers, &db_graph);
   }
 
-  ctx_check(db_graph.ht.num_kmers == hash_table_count_kmers(&db_graph.ht));
+  ctx_check(hash_table_nkmers(&db_graph.ht) == hash_table_count_kmers(&db_graph.ht));
 
   // TODO: report kmer coverage for each sample
 

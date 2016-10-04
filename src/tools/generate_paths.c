@@ -251,7 +251,7 @@ static inline size_t _juncs_to_paths(const size_t *restrict pos_pl,
 
     // #ifdef CTXVERBOSE
     //   char kmerstr[MAX_KMER_SIZE+1];
-    //   BinaryKmer tmpkmer = db_node_get_bkmer(db_graph, node.key);
+    //   BinaryKmer tmpkmer = db_node_get_bkey(db_graph, node.key);
     //   binary_kmer_to_str(tmpkmer, db_graph->kmer_size, kmerstr);
     //   fputs(kmerstr, stdout);
     //   binary_seq_print(newgpath.seq, newgpath.num_juncs, stdout);

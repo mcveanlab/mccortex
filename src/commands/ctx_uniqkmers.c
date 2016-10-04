@@ -89,7 +89,7 @@ static inline bool _is_valid_flank(BinaryKmer bkmer, const read_t *r,
       nuc = dna_char_to_nuc(r->seq.b[i-1]);
       tmp_bkmer = binary_kmer_left_shift_add(tmp_bkmer, kmer_size, nuc);
       tmp_bkey = binary_kmer_get_key(tmp_bkmer, kmer_size);
-      if(binary_kmers_are_equal(bkey, tmp_bkey)) return false;
+      if(binary_kmer_eq(bkey, tmp_bkey)) return false;
       bkeys[i] = tmp_bkey;
     }
   }
@@ -98,7 +98,7 @@ static inline bool _is_valid_flank(BinaryKmer bkmer, const read_t *r,
       nuc = dna_char_to_nuc(r->seq.b[r->seq.end-i]);
       tmp_bkmer = binary_kmer_right_shift_add(tmp_bkmer, kmer_size, nuc);
       tmp_bkey = binary_kmer_get_key(tmp_bkmer, kmer_size);
-      if(binary_kmers_are_equal(bkey, tmp_bkey)) return false;
+      if(binary_kmer_eq(bkey, tmp_bkey)) return false;
       bkeys[i] = tmp_bkey;
     }
   }

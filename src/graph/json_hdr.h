@@ -17,7 +17,7 @@ cJSON* json_hdr_load(gzFile gzin, const char *path);
 // @param path is the path of the file we are writing to
 void json_hdr_make_std(cJSON *json, const char *path,
                        cJSON **hdrs, size_t nhdrs,
-                       const dBGraph *db_graph);
+                       const dBGraph *db_graph, size_t nkmers_in_graph);
 
 // Add current command to a header
 void json_hdr_add_curr_cmd(cJSON *json, const char *path);

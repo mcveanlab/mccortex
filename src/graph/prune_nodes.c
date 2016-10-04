@@ -42,7 +42,7 @@ int prune_edges_to_nodes_lacking_flag(hkey_t hkey, const uint8_t *flags,
   if(bitset_get(flags, hkey))
   {
     // Check edges
-    bkmer = db_node_get_bkmer(db_graph, hkey);
+    bkmer = db_node_get_bkey(db_graph, hkey);
     keep_edges = db_node_get_edges_union(db_graph, hkey);
 
     for(orient = 0; orient < 2; orient++)
@@ -126,7 +126,7 @@ void prune_nodes_lacking_flag(size_t nthreads, const uint8_t *flags,
 static void prune_connecting_edges(dBGraph *db_graph, hkey_t hkey)
 {
   Edges uedges = db_node_get_edges_union(db_graph, hkey);
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+  BinaryKmer bkmer = db_node_get_bkey(db_graph, hkey);
   dBNode next_node;
   Orientation or;
   Nucleotide nuc, lost_nuc;

@@ -575,9 +575,9 @@ void clean_graph(size_t num_threads,
 {
   ctx_assert(db_graph->num_edge_cols > 0);
 
-  size_t i, init_nkmers = db_graph->ht.num_kmers;
+  size_t i, init_nkmers = hash_table_nkmers(&db_graph->ht);
 
-  if(db_graph->ht.num_kmers == 0) return;
+  if(init_nkmers == 0) return;
   if(covg_threshold == 0 && min_keep_tip == 0) {
     warn("[cleaning] No cleaning specified");
     return;
@@ -633,7 +633,7 @@ void clean_graph(size_t num_threads,
 
   // Print status update
   char remain_nkmers_str[100], removed_nkmers_str[100];
-  size_t remain_nkmers = db_graph->ht.num_kmers;
+  size_t remain_nkmers = hash_table_nkmers(&db_graph->ht);
   size_t removed_nkmers = init_nkmers - remain_nkmers;
   ulong_to_str(remain_nkmers, remain_nkmers_str);
   ulong_to_str(removed_nkmers, removed_nkmers_str);

@@ -185,8 +185,10 @@ int ctx_dist_matrix(int argc, char **argv)
   fprintf(fout, "\n");
   for(row = 0; row < ncols; row++) {
     fprintf(fout, "col%zu", row);
-    for(col = 0; col < ncols; col++)
-      fprintf(fout, "\t%zu", (size_t)mat[ncols*row+col]);
+    for(col = 0; col < ncols; col++) {
+      if(col < row) fprintf(fout, "\t.");
+      else fprintf(fout, "\t%zu", (size_t)mat[ncols*row+col]);
+    }
     fprintf(fout, "\n");
   }
 

@@ -132,7 +132,7 @@ size_t cmd_get_kmers_in_hash(size_t mem_to_use, bool mem_to_use_set,
 // Check memory against memory limit and machine memory
 void cmd_check_mem_limit(size_t mem_to_use, size_t mem_requested)
 {
-  char memstr[100], ramstr[100];
+  char memstr[50], ramstr[50];
   bytes_to_str(mem_requested, 1, memstr);
 
   if(mem_requested > mem_to_use)

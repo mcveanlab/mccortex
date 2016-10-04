@@ -36,7 +36,7 @@ void test_graph_crawler()
   TASSERT(node.key != HASH_NOT_FOUND);
   TASSERT(next_node.key != HASH_NOT_FOUND);
 
-  BinaryKmer bkey = db_node_get_bkmer(&graph, node.key);
+  BinaryKmer bkey = db_node_get_bkey(&graph, node.key);
   Edges edges = db_node_get_edges(&graph, node.key, 0);
 
   dBNode next_nodes[4];

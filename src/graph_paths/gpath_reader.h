@@ -37,29 +37,6 @@ typedef struct
 
 madcrow_buffer(gpfile_buf, GPathFileBuffer, GPathReader);
 
-/**
- Parse line with format:
-  [FR] [njuncs] [nseen0,nseen1,...] [juncs:ACAGT] ([seq=] [juncpos=])?
- */
-void link_line_parse(const StrBuf *line, int version, const FileFilter *fltr,
-                     bool *fw, size_t *njuncs,
-                     SizeBuffer *counts, StrBuf *juncs,
-                     StrBuf *seq, SizeBuffer *juncpos);
-
-// Reads line <kmer> <num_links>
-// Calls die() on error
-// Returns true unless end of file
-bool gpath_reader_read_kmer(GPathReader *file, StrBuf *kmer, size_t *num_links);
-
-// Reads line [FR] <num_links>
-// Calls die() on error
-// Returns true unless end of link entries
-bool gpath_reader_read_link(GPathReader *file,
-                            bool *fw, size_t *njuncs,
-                            SizeBuffer *countbuf, StrBuf *juncs,
-                            StrBuf *seq, SizeBuffer *juncpos);
-
-
 // Open file, exits on error
 // if successful creates a new GPathReader
 void gpath_reader_open(GPathReader *file, const char *path);
@@ -79,9 +56,22 @@ void gpath_reader_check(const GPathReader *file, size_t kmer_size, size_t ncols)
 void gpath_reader_load(GPathReader *file, int kmer_flags, dBGraph *db_graph);
 void gpath_reader_close(GPathReader *file);
 
+// Given an array of GPathReaders, find the max and sum of the number of kmers
+void gpath_reader_count_kmers(GPathReader *rdrs, size_t nreaders,
+                              size_t *max_kmers_ptr, size_t *sum_kmers_ptr);
+
 //
 // Reading without loading into a graph
 //
+
+/**
+ Parse line with format:
+  [FR] [njuncs] [nseen0,nseen1,...] [juncs:ACAGT] ([seq=] [juncpos=])?
+ */
+void link_line_parse(const StrBuf *line, int version, const FileFilter *fltr,
+                     bool *fw, size_t *njuncs,
+                     SizeBuffer *counts, StrBuf *juncs,
+                     StrBuf *seq, SizeBuffer *juncpos);
 
 // Reads line <kmer> <num_links>
 // Calls die() on error
@@ -127,11 +117,13 @@ void gpath_reader_max_mem_req(GPathReader *files, size_t nfiles,
 // sets @max_file_mem_ptr to the max for a single file memory
 size_t gpath_reader_sum_mem(GPathReader *files, size_t nfiles,
                             size_t ncols, bool count_nseen, bool use_gphash,
-                            size_t *max_file_mem_ptr);
+                            size_t *max_file_mem_ptr,
+                            size_t *sum_npaths_ptr, size_t *max_npaths_ptr);
 
 size_t gpath_reader_mem_req(GPathReader *files, size_t nfiles,
                             size_t ncols, size_t max_mem,
-                            bool count_nseen);
+                            bool count_nseen,
+                            size_t graph_capacity, bool split_linked_lists);
 
 void gpath_reader_alloc_gpstore(GPathReader *files, size_t nfiles,
                                 size_t mem, bool count_nseen,

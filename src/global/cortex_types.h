@@ -7,6 +7,9 @@ typedef uint32_t Covg;
 
 #define COVG_MAX UINT_MAX
 
+#define SAFE_ADD_COVG(a,b) ((uint64_t)(a)+(b) > COVG_MAX ? COVG_MAX : (a)+(b))
+#define SAFE_SUM_COVG(a,b) ((a) = SAFE_ADD_COVG((a), (b)))
+
 typedef uint8_t Orientation;
 #define FORWARD 0
 #define REVERSE 1
