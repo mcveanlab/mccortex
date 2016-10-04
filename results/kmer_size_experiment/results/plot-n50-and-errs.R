@@ -10,14 +10,15 @@ library('gridExtra')
 library('cowplot')
 
 args <- commandArgs(trailingOnly=TRUE)
-if(length(args) != 5) {
-  stop("Usage: ./plot-n50-and-errs.R <plain.csv> <links.csv> <pe.csv> <title> <out.pdf>\n")
+if(length(args) != 5 && length(args) != 4) {
+  stop("Usage: ./plot-n50-and-errs.R <title> <out.pdf> <plain.csv> <links.csv> [pe.csv]\n")
 }
 
 plain_csv <- "perfect.plain.csv"
 links_csv <- "perfect.links.csv"
 pe_csv <- "perfect.pe.csv"
 plot_title <- "Perfect coverage (100X, 100bp reads)"
+use_pe <- true
 
 # plain_csv <- "stoch.plain.csv"
 # links_csv <- "stoch.links.csv"
@@ -31,20 +32,34 @@ plot_title <- "Perfect coverage (100X, 100bp reads)"
 
 # output_pdf <- "plot.pdf"
 
-plain_csv <- args[1]
-links_csv <- args[2]
-pe_csv <- args[3]
-plot_title <- args[4]
-output_pdf <- args[5]
+use_pe <- (length(args) == 5)
+
+plot_title <- args[1]
+output_pdf <- args[2]
+plain_csv <- args[3]
+links_csv <- args[4]
+if(use_pe) {
+  pe_csv <- args[5]
+}
 
 a <- read.table(plain_csv,sep=',',head=T,comment.char='#',as.is=T)
 a$graph = factor('plain')
 b <- read.table(links_csv,sep=',',head=T,comment.char='#',as.is=T)
 b$graph = factor('links')
-c <- read.table(pe_csv,sep=',',head=T,comment.char='#',as.is=T)
-c$graph = factor('pe')
-d <- rbind(a,b,c)
-d$graph <- factor(d$graph, levels=c('pe','links','plain'), labels=c('links PE','links','plain'))
+d <- rbind(a,b)
+
+if(use_pe) {
+  c <- read.table(pe_csv,sep=',',head=T,comment.char='#',as.is=T)
+  c$graph <- factor('pe')
+  d <- rbind(d,c)
+  dlevels <- c('pe','links','plain')
+  dlabels <- c('links PE','links','plain')
+} else {
+  dlevels <- c('links','plain')
+  dlabels <- c('links','plain')
+}
+
+d$graph <- factor(d$graph, levels=dlevels, labels=dlabels)
 
 # Approach 1
 # Plot contig N50
