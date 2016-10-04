@@ -166,10 +166,10 @@ def ng50_from_coverage(l,reflen):
   halflen = reflen//2
   lensum = n = 0
   while lensum < halflen:
-    if n == len(l):
+    if n+1 == len(l):
       print("Warning: haven't assembled half of ref, NG50 is underestimate",
             file=sys.stderr)
-      return (n,lensum)
+      break
     lensum += l[n][1]
     n += 1
   return (n,l[n][1])

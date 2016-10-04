@@ -749,7 +749,6 @@ size_t gpath_reader_mem_req(GPathReader *files, size_t nfiles,
 {
   size_t max_file_mem = 0, sum_file_mem;
   size_t gpstore_mem = gpath_store_mem(graph_capacity, split_linked_lists);
-  status("graph_capacity:%zu gpstore_mem:%zu", graph_capacity, gpstore_mem);
   sum_file_mem = gpath_reader_sum_mem(files, nfiles, ncols, count_nseen, false,
                                       &max_file_mem, NULL, NULL);
 

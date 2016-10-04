@@ -9,19 +9,19 @@ SHELL=/bin/bash -euo pipefail
 # Generate plots with:
 #   cd results && ./make-csvs-and-plots.sh
 #
-# Isaac Turner 2016-10-12
+# Isaac Turner 2016-10-28
 
 KMERS=21 31 41 51 61 71 81 91 99
 CTXDIR=../../
-READSIM=$(CTXDIR)/libs/readsim/readsim
-PERFECTSIM=$(CTXDIR)/libs/seq_file/scripts/perfect_covg.sh
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
+GENREADS=$(CTXDIR)/scripts/python/generate-reads.py
 COUNT_BAD_EDGES=python $(CTXDIR)/scripts/python/count-bad-edges.py
 REF=$(CTXDIR)/results/data/chr22/chr22_17M_18M.fa
 READS_PERFECT=data/perfect_cov.fa.gz
 READS_STOCH=data/stoch_cov.fa.gz
 READS_STOCHERR=data/stocherr_cov.fa.gz
 MKFILE=runk.mk
+FRAGLEN=400
 READLEN=100
 DEPTH=100
 ERRRATE=0.005
@@ -36,38 +36,46 @@ DIRS=data $(NAMES)
 # Keep all files
 .SECONDARY:
 
-all: $(PLAIN_STATS) $(LINKS_STATS) seqn.errors.csv
+PERFECT=$(foreach K,$(KMERS),perfect_k$(K))
+STOCH=$(foreach K,$(KMERS),stoch_k$(K))
+STOCHERR=$(foreach K,$(KMERS),stocherr_k$(K))
+
+# all: $(PLAIN_STATS) $(LINKS_STATS) bad.edges.csv
+all: $(PERFECT) $(STOCH) $(STOCHERR) bad.edges.csv
 
 $(REF):
 	cd ../data && ./download.sh
 
 $(READS_PERFECT): $(REF) | $(DIRS)
-	$(PERFECTSIM) $(READLEN) $< | gzip -c > $@
+	$(DNACAT) -P $(REF) | $(GENREADS) -s $(SEED) -p $(FRAGLEN) -r $(READLEN) | gzip -c > $@
 
 $(READS_STOCH): $(REF) | $(DIRS)
-	$(READSIM) -g $(SEED) -l $(READLEN) -r $< -d $(DEPTH) -e 0 -s data/stoch_cov
+	$(DNACAT) -P $(REF) | $(GENREADS) -s $(SEED) -p $(FRAGLEN) -r $(READLEN) -d $(DEPTH) | gzip -c > $@
 
 $(READS_STOCHERR): $(REF) | $(DIRS)
-	$(READSIM) -g $(SEED) -l $(READLEN) -r $< -d $(DEPTH) -e $(ERRRATE) -s data/stocherr_cov
+	$(DNACAT) -P $(REF) | $(GENREADS) -s $(SEED) -p $(FRAGLEN) -r $(READLEN) -d $(DEPTH) -e $(ERRRATE) | gzip -c > $@
 
-perfect_cov/k%/stats.plain.txt perfect_cov/k%/stats.links.txt: $(READS_PERFECT)
+# perfect_cov/k%/stats.plain.txt perfect_cov/k%/stats.links.txt: $(READS_PERFECT)
+perfect_k%: $(READS_PERFECT)
 	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=perfect_cov INPUT=$(READS_PERFECT)
 
-stoch_cov/k%/stats.plain.txt stoch_cov/k%/stats.links.txt: $(READS_STOCH)
+# stoch_cov/k%/stats.plain.txt stoch_cov/k%/stats.links.txt: $(READS_STOCH)
+stoch_k%: $(READS_STOCH)
 	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=stoch_cov INPUT=$(READS_STOCH)
 
-stocherr_cov/k%/stats.plain.txt stocherr_cov/k%/stats.links.txt: $(READS_STOCHERR)
+# stocherr_cov/k%/stats.plain.txt stocherr_cov/k%/stats.links.txt: $(READS_STOCHERR)
+stocherr_k%: $(READS_STOCHERR)
 	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=stocherr_cov INPUT=$(READS_STOCHERR) CLEAN=1
 
 # Find the number of sequencing errors that would add a new edges between two
 # existing kmers
-seqn.errors.csv: $(REF)
+bad.edges.csv: $(REF)
 	$(DNACAT) -P $(REF) | $(COUNT_BAD_EDGES) $(DEPTH) $(ERRRATE) > $@
 
 $(DIRS):
 	mkdir -p $@
 
 clean:
-	rm -rf $(DIRS) seqn.errors.csv
+	rm -rf $(DIRS) bad.edges.csv
 
 .PHONY: all clean

@@ -10,47 +10,56 @@ library('gridExtra')
 library('cowplot')
 
 args <- commandArgs(trailingOnly=TRUE)
-if(length(args) != 4) {
-  stop("Usage: ./plot-n50-and-errs.R <plain.csv> <links.csv> <title> <out.pdf>\n")
+if(length(args) != 5) {
+  stop("Usage: ./plot-n50-and-errs.R <plain.csv> <links.csv> <pe.csv> <title> <out.pdf>\n")
 }
 
-# plain_csv <- "perfect.plain.csv"
-# links_csv <- "perfect.links.csv"
-# plot_title <- "Perfect coverage (100X, 100bp reads)"
+plain_csv <- "perfect.plain.csv"
+links_csv <- "perfect.links.csv"
+pe_csv <- "perfect.pe.csv"
+plot_title <- "Perfect coverage (100X, 100bp reads)"
 
 # plain_csv <- "stoch.plain.csv"
 # links_csv <- "stoch.links.csv"
+# pe_csv <- "stoch.pe.csv"
 # plot_title <- "Stochastic coverage (100X, 100bp reads)"
 
 # plain_csv <- "stocher.plain.csv"
 # links_csv <- "stocher.links.csv"
+# pe_csv <- "stocherr.pe.csv"
 # plot_title <- "Stochastic coverage + Error (100X, 100bp reads, 1% err)"
 
 # output_pdf <- "plot.pdf"
 
 plain_csv <- args[1]
 links_csv <- args[2]
-plot_title <- args[3]
-output_pdf <- args[4]
+pe_csv <- args[3]
+plot_title <- args[4]
+output_pdf <- args[5]
 
-p <- read.table(plain_csv,sep=',',head=T,comment.char='#',as.is=T)
-p$graph = 'plain'
-l <- read.table(links_csv,sep=',',head=T,comment.char='#',as.is=T)
-l$graph = 'links'
-d <- rbind(p,l)
+a <- read.table(plain_csv,sep=',',head=T,comment.char='#',as.is=T)
+a$graph = factor('plain')
+b <- read.table(links_csv,sep=',',head=T,comment.char='#',as.is=T)
+b$graph = factor('links')
+c <- read.table(pe_csv,sep=',',head=T,comment.char='#',as.is=T)
+c$graph = factor('pe')
+d <- rbind(a,b,c)
+d$graph <- factor(d$graph, levels=c('pe','links','plain'), labels=c('links PE','links','plain'))
 
 # Approach 1
+# Plot contig N50
 p1 <- ggplot(data=d, aes(x=K, y=NG50, color=graph)) + theme_minimal() +
       theme(axis.title.x = element_blank(), axis.text.x = element_blank()) +
       geom_point(shape=4) + geom_line() +
-      scale_y_continuous(limits = c(0,80000)) +
+      scale_y_continuous(limits = c(0,250000)) +
       ylab("NG50") + ggtitle(plot_title) +
       theme(legend.title=element_blank()) + # hide legend title
-      theme(legend.justification=c(1,1), legend.position=c(1,1)) # legend in plot
+      theme(legend.justification=c(0,1), legend.position=c(0,1)) # legend in plot top left
 
+# Plot assembly error rate
 p2 <- ggplot(data=d, aes(x=K, y=AssemblyErrors, color=graph)) + theme_minimal() +
       geom_point(shape=4) + geom_line() +
-      scale_y_continuous(breaks=seq(0,100,20)) + coord_cartesian(ylim=c(0,100)) +
+      scale_y_continuous(breaks=seq(0,150,50)) + coord_cartesian(ylim=c(0,150)) +
       ylab("Assembly Errors") +
       theme(legend.position="none") # hide legend
 
