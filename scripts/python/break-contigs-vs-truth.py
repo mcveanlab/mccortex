@@ -242,6 +242,8 @@ def main(k,path):
 def usage(err=None):
   if err is not None: print(err,file=sys.stderr)
   print("python break-contigs-vs-truth.py <k> [contigs.txt]",file=sys.stderr)
+  print("  Reads ref genome from STDIN as a single line",file=sys.stderr)
+  print("  If contigs.txt not passed, reads from STDIN after reading ref",file=sys.stderr)
   exit(-1)
 
 if __name__ == '__main__':
