@@ -1,0 +1,12 @@
+
+Requires python and uses the bundled version of bfc
+
+Sample reads and assemble with:
+
+    make
+
+Generate plots and tables with:
+
+    cd results
+    ./generate-results.sh
+

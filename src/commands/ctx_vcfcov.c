@@ -17,8 +17,9 @@
 const char vcfcov_usage[] =
 "usage: "CMD" "SUBCMD" [options] <in.vcf> <in.ctx> [in2.ctx ...]\n"
 "\n"
-"  Get coverage of a VCF in the cortex graphs. VCF must be sorted by position. \n"
-"  It is recommended to use uncleaned graphs.\n"
+"  Add coverage to a VCF using cortex graphs. It is recommended to use\n"
+"  uncleaned graphs. The VCF must be sorted by position, with duplicates removed\n"
+"  Indels ought to be left aligned to remove duplicates.\n"
 "\n"
 "  -h, --help             This help message\n"
 "  -q, --quiet            Silence status output normally printed to STDERR\n"

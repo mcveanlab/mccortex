@@ -8,7 +8,7 @@ mkdir -p latest
 ./plot-n50-and-errs.R "Perfect cov. (100X, 100bp reads)" latest/perfect.pdf \
   latest/perfect.plain.csv latest/perfect.links.csv latest/perfect.pe.csv
 
-./plot-n50-and-errs.R "Perfect cov. (100X, 100bp reads)" latest/perfect_nope.pdf \
+./plot-n50-and-errs.R "Perfect cov. (100X, 100bp reads)" latest/perfect_no_pe.pdf \
   latest/perfect.plain.csv latest/perfect.links.csv
 
 ./make-csv.sh ../stoch_cov/k*/stats.plain.txt > latest/stoch.plain.csv
