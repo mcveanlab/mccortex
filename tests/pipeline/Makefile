@@ -1,5 +1,10 @@
 SHELL=/bin/bash -euo pipefail
 
+#
+# Simulate reads from two given samples, with sequencing error of 1%, 50X, 100bp
+# Call variants and check that we get exactly the expected variants
+#
+
 CTXDIR=../..
 MCCORTEX=$(CTXDIR)/bin/mccortex31
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat

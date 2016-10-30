@@ -4,8 +4,8 @@
 set -euo pipefail
 
 function usage {
-  echo "usage mccortex <K> ..." >&2
-  echo "  wrapper to find the correct mccortex binary given kmer size (K)" >&2
+  echo "usage: mccortex <K> [<cmd> ...]" >&2
+  echo "  Wrapper to find the correct mccortex binary given kmer size (K)" >&2
   exit -1
 }
 

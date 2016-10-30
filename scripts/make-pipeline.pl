@@ -375,16 +375,16 @@ STAMPY='.(defined($stampy) ? $stampy : '').'
 STAMPY_BASE='.(defined($stampy_base) ? $stampy_base : '').'
 
 # Set up memory, threads and number of kmers in the graph
-CTX_ARGS=
 ifdef MEM
-  CTX_ARGS:=$(CTX_ARGS) -m $(MEM)
+  CTX_ARGS_MEM=-m $(MEM)
 endif
 ifdef NKMERS
-  CTX_ARGS:=$(CTX_ARGS) -n $(NKMERS)
+  CTX_ARGS_NKMERS=-n $(NKMERS)
 endif
 ifdef NTHREADS
-  CTX_ARGS:=$(CTX_ARGS) -t $(NTHREADS)
+  CTX_ARGS_THREADS=-t $(NTHREADS)
 endif
+CTX_ARGS=$(CTX_ARGS_MEM) $(CTX_ARGS_NKMERS) $(CTX_ARGS_THREADS)
 
 #
 # Parse USE_LINKS and JOINT_CALLING Makefile options
@@ -939,7 +939,7 @@ if(defined($ref_path))
         for my $assem (qw(links plain)) {
           my $callroot = "$call.$pop.$assem.$kmerstr";
           print "$proj/k$k/vcfcov/$callroot.%.vcf.gz: $proj/vcfs/$callroot.vcf.gz $proj/k$k/graphs/%.raw.ctx | dirs\n";
-          print "\t( $mccortex vcfcov -m \$(MEM) \$(VCFCOV_ARGS) --ref $ref_path --out-fmt vcfgz \$^ | \$(BCFTOOLS) view --samples \"\$*\" -o \$@ -O z ) >& \$@.log\n\n";
+          print "\t( $mccortex vcfcov \$(CTX_ARGS_MEM) \$(CTX_ARGS_NKMERS) \$(VCFCOV_ARGS) --ref $ref_path --out-fmt vcfgz \$^ | \$(BCFTOOLS) view --samples \"\$*\" -o \$@ -O z ) >& \$@.log\n\n";
         }
       }
     }
