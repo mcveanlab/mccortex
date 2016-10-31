@@ -17,8 +17,9 @@
 const char vcfcov_usage[] =
 "usage: "CMD" "SUBCMD" [options] <in.vcf> <in.ctx> [in2.ctx ...]\n"
 "\n"
-"  Get coverage of a VCF in the cortex graphs. VCF must be sorted by position. \n"
-"  It is recommended to use uncleaned graphs.\n"
+"  Add coverage to a VCF using cortex graphs. It is recommended to use\n"
+"  uncleaned graphs. The VCF must be sorted by position, with duplicates removed\n"
+"  Indels ought to be left aligned to remove duplicates.\n"
 "\n"
 "  -h, --help             This help message\n"
 "  -q, --quiet            Silence status output normally printed to STDERR\n"
@@ -102,6 +103,13 @@ int ctx_vcfcov(int argc, char **argv)
 
   if(use_lowmem && use_himem)
     cmd_print_usage("Cannot use --low-mem and --high-mem together!");
+
+  // Override number of kmers to use if --low-mem passed, since we calculate
+  // number of kmers required anyway
+  if(use_lowmem && memargs.num_kmers_set) {
+    memargs.num_kmers_set = 0;
+    memargs.num_kmers_set = false;
+  }
 
   if(!max_allele_len) max_allele_len = DEFAULT_MAX_ALLELE_LEN;
   if(!max_gt_vars) max_gt_vars = DEFAULT_MAX_GT_VARS;

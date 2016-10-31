@@ -65,7 +65,7 @@ samples.txt:
 "reads/chrom1.$(HAPDEPTH)X.1.fa.gz:reads/chrom1.$(HAPDEPTH)X.2.fa.gz" > $@
 
 task.k$(K).mk: samples.txt
-	$(CTXPIPELINE) -r $(REF) $(K) $(OUTDIR) $< > $@
+	$(CTXPIPELINE) $(K) $(OUTDIR) $< > $@
 
 supernodes.k$(K).fa: task.k$(K).mk $(READS)
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=1G graphs

@@ -103,9 +103,9 @@ Commands
                 inferedges   infer graph edges between kmers before calling `thread`
                 join         combine graphs, filter graph intersections
                 links        clean and plot link files (.ctp)
-                pjoin        merge path files (.ctp)
+                pjoin        merge link files (.ctp)
                 popbubbles   pop bubbles in the population graph
-                pview        text view of a cortex path file (.ctp)
+                pview        text view of a cortex link file (.ctp)
                 reads        filter reads against a graph
                 rmsubstr     reduce set of strings to remove substrings
                 server       interactively query the graph
@@ -117,7 +117,8 @@ Commands
                 vcfcov       coverage of a VCF against cortex graphs
                 vcfgeno      genotype a VCF after running vcfcov
                 view         text view of a cortex graph file (.ctx)
-    
+
+
       Type a command with no arguments to see help.
     
     Common Options:
@@ -196,6 +197,7 @@ Used in testing:
 * [bwa](https://github.com/lh3/bwa) (MIT)
 * [readsim](https://github.com/noporpoise/readsim) (Public Domain)
 * [samtools](https://github.com/samtools/samtools) (MIT)
+* [bfc](https://github.com/lh3/bfc) (MIT)
 
 Citing
 ------
