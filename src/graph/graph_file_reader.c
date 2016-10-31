@@ -4,6 +4,17 @@
 #include "cmd.h"
 #include "file_util.h"
 
+// Buffer size `bufsize` is in bytes
+void graph_file_set_buffered(GraphFileReader *file, size_t bufsize)
+{
+  if(graph_file_is_buffered(file) == (bufsize>0)) return;
+  if(bufsize) strm_buf_alloc(&file->strm, bufsize);
+  else {
+    fseek(file->fh, (off_t)file->strm.begin - file->strm.end, SEEK_CUR);
+    strm_buf_dealloc(&file->strm);
+  }
+}
+
 int graph_file_fseek(GraphFileReader *file, off_t offset, int whence)
 {
   if(file_filter_isstdin(&file->fltr)) die("Cannot fseek on STDIN");
@@ -21,23 +32,24 @@ off_t graph_file_ftell(GraphFileReader *file)
     return ftell(file->fh);
 }
 
-size_t gfr_fread_bytes(GraphFileReader *file, void *ptr, size_t size)
+// read `n` bytes from `file` into `ptr`
+size_t graph_file_fread(GraphFileReader *file, void *ptr, size_t n)
 {
-  size_t n;
+  size_t nread;
   if(graph_file_is_buffered(file))
-    n = fread_buf(file->fh, ptr, size, &file->strm);
+    nread = fread_buf(file->fh, ptr, n, &file->strm);
   else
-    n = fread2(file->fh, ptr, size);
+    nread = fread2(file->fh, ptr, n);
   // check for error
   if(ferror(file->fh))
     die("File error: %s [%s]", strerror(errno), file_filter_path(&file->fltr));
-  return n;
+  return nread;
 }
 
 // Read an element from the graph file
 #define _gfread(gfile,ptr,size,desc) \
 do { \
-  size_t _n = gfr_fread_bytes(gfile, ptr, size); \
+  size_t _n = graph_file_fread(gfile, ptr, size); \
   const char *_path = file_filter_path(&(gfile)->fltr); \
   if(_n != (size)) { \
     die("Couldn't read '%s': expected %zu; recieved: %zu; [file: %s]\n",\
@@ -177,15 +189,15 @@ size_t graph_file_read_header(GraphFileReader *file)
 
       _gfread(file, &(err_cleaning->cleaned_tips),
               sizeof(uint8_t), "tip cleaning");
-      _gfread(file, &(err_cleaning->cleaned_snodes),
+      _gfread(file, &(err_cleaning->cleaned_unitigs),
               sizeof(uint8_t), "remove low covg unitig");
       _gfread(file, &(err_cleaning->cleaned_kmers),
               sizeof(uint8_t), "remove low covg kmers");
       _gfread(file, &(err_cleaning->is_graph_intersection),
               sizeof(uint8_t), "cleaned against graph");
 
-      uint32_t clean_snodes_thresh = 0, clean_kmers_thresh = 0;
-      _gfread(file, &clean_snodes_thresh,
+      uint32_t clean_unitigs_thresh = 0, clean_kmers_thresh = 0;
+      _gfread(file, &clean_unitigs_thresh,
               sizeof(uint32_t), "remove low covg unitig threshold");
       _gfread(file, &clean_kmers_thresh,
               sizeof(uint32_t), "remove low covg kmer threshold");
@@ -194,18 +206,18 @@ size_t graph_file_read_header(GraphFileReader *file)
 
       // Fix for old versions with negative thresholds
       if(h->version <= 6) {
-        if(!err_cleaning->cleaned_snodes && clean_snodes_thresh == (uint32_t)-1)
-          clean_snodes_thresh = 0;
+        if(!err_cleaning->cleaned_unitigs && clean_unitigs_thresh == (uint32_t)-1)
+          clean_unitigs_thresh = 0;
         if(!err_cleaning->cleaned_kmers && clean_kmers_thresh == (uint32_t)-1)
           clean_kmers_thresh = 0;
       }
 
       // Sanity checks
-      if(!err_cleaning->cleaned_snodes && clean_snodes_thresh > 0)
+      if(!err_cleaning->cleaned_unitigs && clean_unitigs_thresh > 0)
       {
         warn("Graph header gives cleaning threshold for unitig "
              "when no cleaning was performed [path: %s]", path);
-        clean_snodes_thresh = 0;
+        clean_unitigs_thresh = 0;
       }
 
       if(!err_cleaning->cleaned_kmers && clean_kmers_thresh > 0)
@@ -215,7 +227,7 @@ size_t graph_file_read_header(GraphFileReader *file)
         clean_kmers_thresh = 0;
       }
 
-      err_cleaning->clean_snodes_thresh = clean_snodes_thresh;
+      err_cleaning->clean_unitigs_thresh = clean_unitigs_thresh;
       err_cleaning->clean_kmers_thresh = clean_kmers_thresh;
 
       // Read cleaned against name
@@ -342,7 +354,7 @@ size_t graph_file_read_raw(GraphFileReader *file,
   int num_bytes_read;
   char kstr[MAX_KMER_SIZE+1];
 
-  num_bytes_read = gfr_fread_bytes(file, bkmer->b, sizeof(BinaryKmer));
+  num_bytes_read = graph_file_fread(file, bkmer->b, sizeof(BinaryKmer));
 
   if(num_bytes_read == 0) return 0;
   if(num_bytes_read != (int)(sizeof(uint64_t)*h->num_of_bitfields))

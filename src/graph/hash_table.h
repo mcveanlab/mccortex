@@ -7,18 +7,17 @@
 #include "binary_kmer.h"
 #include "util.h"
 
-#define UNSET_BKMER_WORD (1UL<<63)
-
 #define HT_BSIZE 0
 #define HT_BITEMS 1
 
 #define HASH_NOT_FOUND (UINT64_MAX>>1)
-#define HASH_ENTRY_ASSIGNED(bkmer) (!((bkmer).b[0] & UNSET_BKMER_WORD))
+#define BKMER_SET_FLAG (1UL<<63)
+#define HASH_ENTRY_ASSIGNED(bkmer) (((bkmer).b[0] & BKMER_SET_FLAG))
 
 // Struct is public so ITERATE macros can operate on it
 typedef struct
 {
-  BinaryKmer *const table;
+  BinaryKmer *const table; // Do not directly access use hash_table_fetch()!
   const uint64_t num_of_buckets; // needs to store maximum of 1<<32
   const uint_fast32_t hash_mask; // this is num_of_buckets - 1
   const uint8_t bucket_size; // max value 255
@@ -33,7 +32,23 @@ typedef struct
 
 // Returns NULL if not enough memory
 void hash_table_alloc(HashTable *htable, uint64_t capacity);
-void hash_table_dealloc(HashTable *hash_table);
+void hash_table_dealloc(HashTable *ht);
+
+#define hash_table_size(ht) (ht)->capacity
+#define hash_table_nkmers(ht) (ht)->num_kmers
+#define hash_table_assigned(ht,key) HASH_ENTRY_ASSIGNED((ht)->table[key])
+
+static inline BinaryKmer hash_table_fetch(const HashTable *const ht, hkey_t key)
+{
+  BinaryKmer bk = ht->table[key];
+  bk.b[0] &= 0x3fffffffffffffff; // mask off top two bits
+  return bk;
+}
+
+#define hash_table_nbuckets(ht) ((ht)->num_of_buckets)
+#define hash_table_bucket_size(ht) ((ht)->bucket_size)
+#define hash_table_bsize(ht,bkt) ((ht)->buckets[bkt][HT_BSIZE])
+#define hash_table_bitems(ht,bkt) ((ht)->buckets[bkt][HT_BITEMS])
 
 hkey_t hash_table_find(const HashTable *const htable, const BinaryKmer bkmer);
 hkey_t hash_table_insert(HashTable *const htable, const BinaryKmer bkmer);
@@ -73,10 +88,10 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
 
 // Iterate over all entries
 #define HASH_ITERATE1(ht,func, ...) do {                                       \
-  const BinaryKmer *_table = (ht)->table, *htt_ptr, *htt_end = _table+(ht)->capacity;\
-  for(htt_ptr = _table; htt_ptr < htt_end; htt_ptr++) {                        \
-    if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                        \
-      func((hkey_t)(htt_ptr - _table), ##__VA_ARGS__);                         \
+  hkey_t _hi, _hsize = hash_table_size(ht);                                    \
+  for(_hi = 0; _hi < _hsize; _hi++) {                                          \
+    if(hash_table_assigned(ht, _hi)) {                                         \
+      func(_hi, ##__VA_ARGS__);                                                \
     }                                                                          \
   }                                                                            \
 } while(0)
@@ -85,13 +100,12 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
 // Faster in low density hash tables
 // Don't use this iterator if your func adds or removes elements
 #define HASH_ITERATE2(ht,func, ...) do {                                       \
-  const BinaryKmer *_table = (ht)->table, *bkt_strt = _table, *htt_ptr;        \
-  size_t _b, _c;                                                               \
-  for(_b = 0; _b < (ht)->num_of_buckets; _b++, bkt_strt += (ht)->bucket_size) {\
-    for(htt_ptr = bkt_strt, _c = 0; _c < (ht)->buckets[_b][HT_BITEMS]; htt_ptr++){\
-      if(HASH_ENTRY_ASSIGNED(*htt_ptr)) {                                      \
-        _c++; func((hkey_t)(htt_ptr - _table), ##__VA_ARGS__);                 \
-      }                                                                        \
+  size_t _b, _bstart, _nitems, _nseen, _hi;                                    \
+  size_t _nbuck = hash_table_nbuckets(ht), _bsize = hash_table_bucket_size(ht);\
+  for(_b = _bstart = 0; _b < _nbuck; _b++, _bstart += _bsize) {                \
+    _nitems = hash_table_bitems(ht, _b);                                       \
+    for(_nseen = 0, _hi = _bstart; _nseen < _nitems; _hi++) {                  \
+      if(hash_table_assigned(ht, _hi)) { _nseen++; func(_hi, ##__VA_ARGS__); } \
     }                                                                          \
   }                                                                            \
 } while(0)
@@ -100,7 +114,7 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
 // Requires sizeof(hkey_t) * ht->num_kmers memory which it allocates and frees
 #define HASH_ITERATE_SORTED(ht,func, ...) do {                                 \
   hkey_t *_hkeys = hash_table_sorted(ht);                                      \
-  size_t _i, _nkmers = (ht)->num_kmers;                                        \
+  size_t _i, _nkmers = hash_table_nkmers(ht);                                  \
   for(_i = 0; _i < _nkmers; _i++) { func(_hkeys[_i], ##__VA_ARGS__); }         \
   ctx_free(_hkeys);                                                            \
 } while(0)
@@ -109,13 +123,12 @@ uint64_t hash_table_count_kmers(const HashTable *const htable);
 // Stops if func() returns non-zero value
 #define HASH_ITERATE_PART(ht,job,njobs,func, ...) do {                         \
   ctx_assert((job) < (njobs));                                                 \
-  const BinaryKmer *_table = (ht)->table, *_start, *_end, *_bkptr;             \
-  const size_t _step = (ht)->capacity / (njobs);                               \
-  _start = _table + (job) * _step;                                             \
-  _end = ((job)+1 == (njobs) ? _table + (ht)->capacity : _start+_step);        \
-  for(_bkptr = _start; _bkptr < _end; _bkptr++) {                              \
-    if(HASH_ENTRY_ASSIGNED(*_bkptr)) {                                         \
-      if(func((hkey_t)(_bkptr - _table), ##__VA_ARGS__)) break;                \
+  const size_t _step = hash_table_size(ht) / (njobs);                          \
+  hkey_t _hi = (job) * _step;                                                  \
+  hkey_t _end = ((job)+1 == (njobs) ? hash_table_size(ht) : _hi+_step);        \
+  for(; _hi < _end; _hi++) {                                                   \
+    if(hash_table_assigned(ht,_hi)) {                                          \
+      if(func(_hi, ##__VA_ARGS__)) break;                                      \
     }                                                                          \
   }                                                                            \
 } while(0)

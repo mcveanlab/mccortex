@@ -11,7 +11,7 @@
 const char pjoin_usage[] =
 "usage: "CMD" pjoin [options] <in1.ctp.gz> [[offset:]in2.ctp[:0,2-4] ...]\n"
 "\n"
-"  Merge cortex path files.\n"
+"  Merge cortex link files.\n"
 "\n"
 "  -h, --help             This help message\n"
 "  -q, --quiet            Silence status output normally printed to STDERR\n"
@@ -95,7 +95,7 @@ int ctx_pjoin(int argc, char **argv)
   char **paths = argv + optind;
 
   //
-  // Open all path files
+  // Open all link files
   //
   size_t i, j;
   size_t ctp_max_cols = 0;
@@ -112,7 +112,7 @@ int ctx_pjoin(int argc, char **argv)
     ctp_max_kmers = MAX2(ctp_max_kmers, nkmers);
     ctp_sum_kmers += nkmers;
 
-    file_filter_status(&pfiles[i].fltr);
+    file_filter_status(&pfiles[i].fltr, false);
   }
 
 
@@ -135,7 +135,7 @@ int ctx_pjoin(int argc, char **argv)
     ctp_sum_kmers = MIN2(ctp_sum_kmers, graph_file_nkmers(&gfile));
   }
 
-  // Check for compatibility between graph files and path files
+  // Check for compatibility between graph files and link files
   graphs_gpaths_compatible(&gfile, graph_file ? 1 : 0, pfiles, num_pfiles, -1);
 
   // Done with the graph file now
@@ -172,7 +172,8 @@ int ctx_pjoin(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(pfiles, num_pfiles, output_ncols, rem_mem, true);
+  path_mem = gpath_reader_mem_req(pfiles, num_pfiles, output_ncols, rem_mem, true,
+                                  kmers_in_hash, false);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -214,7 +215,7 @@ int ctx_pjoin(int argc, char **argv)
     }
   }
 
-  // Load path files
+  // Load link files
   for(i = 0; i < num_pfiles; i++)
     gpath_reader_load(&pfiles[i], GPATH_ADD_MISSING_KMERS, &db_graph);
 

@@ -30,11 +30,22 @@ madcrow_buffer(gfile_buf, GraphFileBuffer, GraphFileReader);
 // Returns 0 if not set instead of -1
 #define graph_file_nkmers(rdr) ((uint64_t)MAX2((rdr)->num_of_kmers, 0))
 
+// Get file offset of a given kmer
+static inline off_t graph_file_offset(const GraphFileReader *gfr, size_t i)
+{
+  size_t s = sizeof(BinaryKmer)+gfr->fltr.srcncols*(sizeof(Covg)+sizeof(Edges));
+  return gfr->hdr_size + s*i;
+}
+
 #define graph_file_is_buffered(file) ((file)->strm.b != NULL)
+// Buffer size `bufsize` is in bytes
+void graph_file_set_buffered(GraphFileReader *file, size_t bufsize);
+
 int graph_file_fseek(GraphFileReader *file, off_t offset, int whence);
 off_t graph_file_ftell(GraphFileReader *file);
 
-size_t gfr_fread_bytes(GraphFileReader *file, void *ptr, size_t size);
+// read `n` bytes from `file` into `ptr`
+size_t graph_file_fread(GraphFileReader *file, void *ptr, size_t n);
 
 // Open file
 // if cannot open file returns 0
@@ -62,8 +73,7 @@ size_t graph_file_read_raw(GraphFileReader *rdr,
 // Read a kmer from the file
 // returns true on success, false otherwise
 // prints warnings if dirty kmers in file
-// Beware: this function does not use file.intocol so you may wish to pass:
-//    graph_file_read(file, &bkmer, covgs+file.intocol, edges+file.intocol);
+// be sure to zero covgs, edges before reading in
 bool graph_file_read(GraphFileReader *file,
                      BinaryKmer *bkmer, Covg *covgs, Edges *edges);
 

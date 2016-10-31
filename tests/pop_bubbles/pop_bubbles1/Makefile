@@ -22,13 +22,13 @@ truth.fa:
 		echo CCTAGGGTGCAGTCAATTGCCAACGGTCGGGA; echo ATAACTTCTCCAAACCAGGTTCATGACAGCCAACCAA; ) > $@
 
 %.ctx: %.fa
-	$(MCCORTEX) build -k $(K) --sample $* --seq $< $@
+	$(MCCORTEX) build -q -k $(K) --sample $* --seq $< $@
 
 popped.ctx: seq.ctx
-	$(MCCORTEX) popbubbles --out $@ $<
+	$(MCCORTEX) popbubbles -q --out $@ $<
 
 check: truth.ctx popped.ctx
-	diff -q <($(MCCORTEX) view -q -k popped.ctx | sort) <($(MCCORTEX) view -q -k truth.ctx | sort) && \
+	diff -q <($(MCCORTEX) view -qk popped.ctx | sort) <($(MCCORTEX) view -qk truth.ctx | sort) && \
 	echo "Kmers match."
 
 clean:

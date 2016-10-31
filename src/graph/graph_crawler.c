@@ -14,7 +14,7 @@ static inline void walk_unitig_end(const GraphCache *cache,
 
   if(n > 1) {
     dBNode endnode = db_nodes_get(nodes, n, snorient == FORWARD, n-1);
-    graph_walker_jump_along_snode(wlk, endnode, n);
+    graph_walker_jump_along_unitig(wlk, endnode, n);
   }
 }
 

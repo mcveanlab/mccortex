@@ -69,3 +69,6 @@
 [submodule "libs/carrays"]
 	path = libs/carrays
 	url = https://github.com/noporpoise/carrays.git
+[submodule "libs/bfc"]
+	path = libs/bfc
+	url = https://github.com/lh3/bfc.git

@@ -6,13 +6,13 @@
 #include "cortex_types.h"
 #include "seq_loading_stats.h"
 
-// Thesholds are zero if not used (e.g. cleaned_snodes == false)
+// Thesholds are zero if not used (e.g. cleaned_unitigs == false)
 // is_graph_intersection is for cleaning a low covg sample against
 // cleaned pool of population
 typedef struct
 {
-  bool cleaned_tips, cleaned_snodes, cleaned_kmers;
-  Covg clean_snodes_thresh, clean_kmers_thresh;
+  bool cleaned_tips, cleaned_unitigs, cleaned_kmers;
+  Covg clean_unitigs_thresh, clean_kmers_thresh;
   bool is_graph_intersection;
   StrBuf intersection_name;
 } ErrorCleaning;

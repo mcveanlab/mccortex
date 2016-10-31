@@ -107,7 +107,8 @@ static void bubble_caller_print_header(gzFile gzout, const char* out_path,
   cJSON_AddNumberToObject(json, "format_version", BUBBLE_FORMAT_VERSION);
 
   // Add standard cortex headers
-  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph);
+  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph,
+                    hash_table_nkmers(&db_graph->ht));
 
   // Add parameters used in bubble calling to the header
   json_hdr_augment_cmd(json, "bubbles", "max_flank_kmers",  cJSON_CreateInt(prefs->max_flank_len));
@@ -124,7 +125,7 @@ static void bubble_caller_print_header(gzFile gzout, const char* out_path,
   gzputs(gzout, "\n");
   gzputs(gzout, "# This file was generated with McCortex\n");
   gzputs(gzout, "#   written by Isaac Turner <turner.isaac@gmail.com>\n");
-  gzputs(gzout, "#   url: "CORTEX_URL"\n");
+  gzputs(gzout, "#   url: "MCCORTEX_URL"\n");
   gzputs(gzout, "# \n");
   gzputs(gzout, "# Comment lines begin with a # and are ignored, but must come after the header\n");
   gzputs(gzout, "\n");
@@ -265,7 +266,7 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
   dBNode nodes[4];
   Nucleotide bases[4];
   size_t i, num_next, num_edges_in_col;
-  BinaryKmer fork_bkmer = db_node_get_bkmer(db_graph, fork_node.key);
+  BinaryKmer fork_bkmer = db_node_get_bkey(db_graph, fork_node.key);
 
   num_next = db_graph_next_nodes(db_graph, fork_bkmer, fork_node.orient,
                                  db_node_edges(db_graph, fork_node.key, 0),

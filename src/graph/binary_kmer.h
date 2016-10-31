@@ -56,40 +56,60 @@ extern const BinaryKmer zero_bkmer;
         ((bkmer)->b[NUM_BKMER_WORDS - 1] \
            = ((bkmer)->b[NUM_BKMER_WORDS - 1] & 0xfffffffffffffffcUL) | (nuc))
 
-#if NUM_BKMER_WORDS == 1
-  #define binary_kmers_cmp(x,y) ((x).b[0] < (y).b[0] ? -1 : (x).b[0] > (y).b[0])
-#else
-  int binary_kmers_cmp(BinaryKmer a, BinaryKmer b);
-#endif
+static inline bool binary_kmer_less_than(BinaryKmer x, BinaryKmer y) {
+  size_t i;
+  for(i = 0; i < NUM_BKMER_WORDS && x.b[i] == y.b[i]; i++);
+  return (i < NUM_BKMER_WORDS && x.b[i] < y.b[i]);
+}
+static inline bool binary_kmer_less_or_eq(BinaryKmer x, BinaryKmer y) {
+  size_t i;
+  for(i = 0; i < NUM_BKMER_WORDS && x.b[i] == y.b[i]; i++);
+  return (i == NUM_BKMER_WORDS || x.b[i] < y.b[i]);
+}
+
+static inline int binary_kmers_compare(BinaryKmer a, BinaryKmer b)
+{
+  int i, c;
+  for(i = 0; i < NUM_BKMER_WORDS; i++)
+    if((c = cmp(a.b[i], b.b[i])) != 0)
+      return c;
+  return 0;
+}
 
 #if NUM_BKMER_WORDS == 1
-  #define binary_kmers_are_equal(x,y) ((x).b[0] == (y).b[0])
-  #define binary_kmer_is_zero(x)      ((x).b[0] == 0UL)
-  #define binary_kmer_less_than(x,y)  ((x).b[0] < (y).b[0])
+  #define binary_kmer_eq(x,y)  ((x).b[0] == (y).b[0])
+  #define binary_kmer_le(x,y)  ((x).b[0] <= (y).b[0])
+  #define binary_kmer_lt(x,y)  ((x).b[0] <  (y).b[0])
+  #define binary_kmer_cmp(x,y) cmp((x).b[0], (y).b[0])
 #elif NUM_BKMER_WORDS == 2
-  #define binary_kmers_are_equal(x,y) ((x).b[0]==(y).b[0] && (x).b[1]==(y).b[1])
-  #define binary_kmer_is_zero(x)      (((x).b[0] | (x).b[1]) == 0UL)
-  #define binary_kmer_less_than(x,y) \
-          ((x).b[0] < (y).b[0] || ((x).b[0] == (y).b[0] && (x).b[1] < (y).b[1]))
+  #define binary_kmer_eq(x,y)  ((x).b[0]==(y).b[0] && (x).b[1]==(y).b[1])
+  #define binary_kmer_le(x,y)  ((x).b[0]<(y).b[0] || ((x).b[0]==(y).b[0] && (x).b[1]<=(y).b[1]))
+  #define binary_kmer_lt(x,y)  ((x).b[0]<(y).b[0] || ((x).b[0]==(y).b[0] && (x).b[1]< (y).b[1]))
+  #define binary_kmer_cmp(x,y) ((x).b[0] != (y).b[0] ? cmp((x).b[0],(y).b[0]) : cmp((x).b[1],(y).b[1]))
 #else /* NUM_BKMER_WORDS > 2 */
-  #define binary_kmers_are_equal(x,y) (memcmp((x).b,(y).b,BKMER_BYTES) == 0)
-  #define binary_kmer_is_zero(x)      binary_kmers_are_equal((x), zero_bkmer)
-  bool binary_kmer_less_than(BinaryKmer left, BinaryKmer right);
+  #define binary_kmer_eq(x,y)  (memcmp((x).b,(y).b,BKMER_BYTES) == 0)
+  #define binary_kmer_le(x,y)  binary_kmer_less_or_eq(x,y)
+  #define binary_kmer_lt(x,y)  binary_kmer_less_than(x,y)
+  #define binary_kmer_cmp(x,y) binary_kmers_compare(x,y)
 #endif
+
+#define binary_kmer_gt(a,b) binary_kmer_lt(b,a)
+#define binary_kmer_ge(a,b) !binary_kmer_lt(a,b)
+#define binary_kmer_ne(a,b) !binary_kmer_eq(a,b)
 
 #define binary_kmer_oversized(bk,k)  ((bk).b[0] & (UINT64_MAX << BKMER_TOP_BITS(k)))
 
 static inline int binary_kmers_qcmp(const void *aa, const void *bb)
 {
   const BinaryKmer *a = (const BinaryKmer*)aa, *b = (const BinaryKmer*)bb;
-  return binary_kmers_cmp(*a, *b);
+  return binary_kmer_cmp(*a, *b);
 }
 
 static inline int binary_kmers_qcmp_ptrs(const void *aa, const void *bb)
 {
   const BinaryKmer *a = *(const BinaryKmer *const*)aa;
   const BinaryKmer *b = *(const BinaryKmer *const*)bb;
-  return binary_kmers_cmp(*a, *b);
+  return binary_kmer_cmp(*a, *b);
 }
 
 static inline int binary_kmers_qcmp_unaligned_ptrs(const void *aa, const void *bb)
@@ -98,7 +118,7 @@ static inline int binary_kmers_qcmp_unaligned_ptrs(const void *aa, const void *b
   const char *a = *(const char *const*)aa, *b = *(const char *const*)bb;
   memcpy(b1.b, a, sizeof(BinaryKmer));
   memcpy(b2.b, b, sizeof(BinaryKmer));
-  return binary_kmers_cmp(b1, b2);
+  return binary_kmer_cmp(b1, b2);
 }
 
 //

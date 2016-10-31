@@ -153,7 +153,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
     die("Please specify a single colour e.g. %s:0", file_filter_path(&gfile->fltr));
 
   //
-  // Open path files
+  // Open link files
   //
   size_t path_max_usedcols = 0;
   for(i = 0; i < args->gpfiles.len; i++) {
@@ -167,7 +167,7 @@ void read_thread_args_parse(struct ReadThreadCmdArgs *args,
   }
   args->path_max_usedcols = path_max_usedcols;
 
-  // Check for compatibility between graph files and path files
+  // Check for compatibility between graph files and link files
   graphs_gpaths_compatible(gfile, 1, args->gpfiles.b, args->gpfiles.len, -1);
 
   // if no paths loaded, set all max_context values to 1, since >1 kmer only

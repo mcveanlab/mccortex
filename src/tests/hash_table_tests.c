@@ -8,7 +8,7 @@
 static void xor_bkmers(hkey_t key, HashTable *ht, BinaryKmer *ptr, size_t *c)
 {
   size_t i;
-  BinaryKmer bkmer = ht->table[key];
+  BinaryKmer bkmer = hash_table_fetch(ht, key);
   for(i = 0; i < NUM_BKMER_WORDS; i++) ptr->b[i] ^= bkmer.b[i];
   (*c)++;
 }
@@ -57,14 +57,14 @@ static void test_add_remove()
     for(i = 0; i < NUM_BKMER_WORDS; i++) bkxor.b[i] ^= bkey0.b[i];
   }
 
-  TASSERT(kmers_added - kmers_deleted == ht.num_kmers);
+  TASSERT(kmers_added - kmers_deleted == hash_table_nkmers(&ht));
 
   // Check xor of bkmers
   size_t kcount = 0;
   HASH_ITERATE(&ht, xor_bkmers, &ht, &bkresult, &kcount);
 
-  TASSERT(kcount == ht.num_kmers);
-  TASSERT(binary_kmers_are_equal(bkxor, bkresult));
+  TASSERT(kcount == hash_table_nkmers(&ht));
+  TASSERT(binary_kmer_eq(bkxor, bkresult));
 
   hash_table_dealloc(&ht);
 }
@@ -120,7 +120,7 @@ static void test_hash_table_mt()
   for(i = 0; i < bset.n; i++)
     TASSERT2(bset.nadded[i] == 1, "%zu", bset.nadded[i]);
 
-  TASSERT(bset.ht.num_kmers == nkmers);
+  TASSERT(hash_table_nkmers(&bset.ht) == nkmers);
 
   ctx_free(bset.bktlocks);
   ctx_free(bset.nadded);

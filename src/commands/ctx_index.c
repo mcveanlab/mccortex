@@ -82,7 +82,7 @@ int ctx_index(int argc, char **argv)
   memset(&gfile, 0, sizeof(GraphFileReader));
   graph_file_open2(&gfile, ctx_path, "r+", true, 0);
 
-  if(!file_filter_is_direct(&gfile.fltr))
+  if(!file_filter_from_direct(&gfile.fltr))
     die("Cannot open graph file with a filter ('in.ctx:blah' syntax)");
 
   // Open output file
@@ -133,10 +133,10 @@ int ctx_index(int argc, char **argv)
     if(!graph_file_read(&gfile, &bkmer, covgs, edges)) {
       status("Read kmer failed"); break; }
     binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
-    if(nblocks > 0 && !binary_kmer_less_than(prev_bkmer,bkmer))
+    if(nblocks > 0 && binary_kmer_ge(prev_bkmer,bkmer))
       die("File is not sorted: %s [%s]", bkmerstr, path);
     // We've already read one kmer entry, read rest of block
-    bl_bytes = kmer_mem + gfr_fread_bytes(&gfile, tmp_mem, rem_block);
+    bl_bytes = kmer_mem + graph_file_fread(&gfile, tmp_mem, rem_block);
     bl_kmers = 1 + bl_bytes / kmer_mem;
     fprintf(fout, "%zu\t%zu\t%s\t%zu\t%zu\n",
             bl_byte_offset, bl_byte_offset+bl_bytes, bkmerstr,

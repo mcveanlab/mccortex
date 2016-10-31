@@ -77,7 +77,7 @@ void graph_walker_force(GraphWalker *wlk, dBNode node, bool is_fork);
  * (can actually be any node up until the end of the current unitig)
  * @param num_nodes is number of nodes we have moved forward
  */
-void graph_walker_jump_along_snode(GraphWalker *wlk, dBNode node, size_t num_nodes);
+void graph_walker_jump_along_unitig(GraphWalker *wlk, dBNode node, size_t num_nodes);
 
 // return 1 on success, 0 otherwise
 bool graph_walker_next(GraphWalker *wlk);

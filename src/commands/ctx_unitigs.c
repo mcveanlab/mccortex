@@ -148,7 +148,7 @@ static inline bool print_edges(hkey_t hkey, size_t threadid, void *arg)
 
   // Check if node is an end of a unitig
   if(uend.assigned) {
-    BinaryKmer bkey = db_node_get_bkmer(p->db_graph, hkey);
+    BinaryKmer bkey = db_node_get_bkey(p->db_graph, hkey);
     Edges edges = db_node_get_edges(p->db_graph, hkey, 0);
 
     if(uend.left) {

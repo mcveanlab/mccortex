@@ -152,15 +152,13 @@ static void process_contig(BreakpointCaller *caller,
 
   // status("  got a call");
 
-  // Find first place we meet the ref
-  size_t callid = __sync_fetch_and_add((volatile size_t*)caller->callid, 1);
-
   // Swallow up some of the path into the 3p flank
   size_t i, flank3pidx = flank3p_runs[0].qoffset;
   size_t extra3pbases = MIN2(kmer_size-1, flank3pidx);
   size_t num_path_kmers = flank3pidx - extra3pbases;
   size_t kmer3poffset = kmer_size-1-extra3pbases;
 
+  size_t callid = __sync_fetch_and_add((volatile size_t*)caller->callid, 1);
   pthread_mutex_lock(caller->out_lock);
 
   // This can be set to anything without a '.' in it
@@ -348,7 +346,7 @@ static void traverse_5pflank(BreakpointCaller *caller, GraphCrawler *crawler,
   dBNode next_nodes[4];
   Nucleotide next_nucs[4];
   size_t i, num_next;
-  BinaryKmer bkmer0 = db_node_get_bkmer(db_graph, node0.key);
+  BinaryKmer bkmer0 = db_node_get_bkey(db_graph, node0.key);
 
   num_next = db_graph_next_nodes(db_graph, bkmer0, node0.orient,
                                  db_node_edges(db_graph, node0.key, 0),
@@ -383,7 +381,7 @@ static void follow_break(BreakpointCaller *caller, dBNode node)
   size_t nonref_idx[4], num_nonref_next = 0;
   const dBGraph *db_graph = caller->db_graph;
 
-  BinaryKmer bkey = db_node_get_bkmer(db_graph, node.key);
+  BinaryKmer bkey = db_node_get_bkey(db_graph, node.key);
   Edges edges = db_node_get_edges(db_graph, node.key, 0);
 
   num_next = db_graph_next_nodes(db_graph, bkey, node.orient, edges,
@@ -505,7 +503,7 @@ static inline int breakpoint_caller_node(hkey_t hkey, BreakpointCaller *caller)
   // DEBUG
   // const dBGraph *db_graph = caller->db_graph;
   // char kstr[MAX_KMER_SIZE+1];
-  // BinaryKmer bkmer = db_node_get_bkmer(db_graph, hkey);
+  // BinaryKmer bkmer = db_node_get_bkey(db_graph, hkey);
   // binary_kmer_to_str(bkmer, db_graph->kmer_size, kstr);
   // if(strcmp(kstr,"GTTGCTCATGA")) return 0; // skip all but given kmer
   // status("brk %s\n", kstr);
@@ -553,7 +551,8 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   cJSON_AddNumberToObject(json, "format_version", BREAKPOINT_FORMAT_VERSION);
 
   // Add standard cortex headers
-  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph);
+  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph,
+                    hash_table_nkmers(&db_graph->ht));
 
   // Update reference colour
   // json.graph.colours[ref_col]
@@ -599,7 +598,7 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   gzputs(gzout, "\n");
   gzputs(gzout, "# This file was generated with McCortex\n");
   gzputs(gzout, "#   written by Isaac Turner <turner.isaac@gmail.com>\n");
-  gzputs(gzout, "#   url: "CORTEX_URL"\n");
+  gzputs(gzout, "#   url: "MCCORTEX_URL"\n");
   gzputs(gzout, "# \n");
   gzputs(gzout, "# Comment lines begin with a # and are ignored, but must come after the header\n");
   gzputs(gzout, "# Format is:\n");

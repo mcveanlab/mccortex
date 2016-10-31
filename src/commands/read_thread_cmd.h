@@ -31,7 +31,7 @@ struct ReadThreadCmdArgs
   CorrectAlnInputBuffer inputs;
 
   size_t max_gap_limit; // max of inputs[].crt_params.ins_gap_max
-  size_t path_max_usedcols; // max colours in path files
+  size_t path_max_usedcols; // max colours in link files
 };
 
 void read_thread_args_alloc(struct ReadThreadCmdArgs *args);

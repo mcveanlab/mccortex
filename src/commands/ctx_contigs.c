@@ -22,7 +22,7 @@ const char contigs_usage[] =
 "  -t, --threads <T>     Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
 "  -o, --out <out.fa>    Print contigs in FASTA [default: don't print]\n"
 "  -c, --colour <c>      Pull out contigs from the given colour [default: 0]\n"
-"  -p, --paths <in.ctp>  Load path file (can specify multiple times)\n"
+"  -p, --paths <in.ctp>  Load link file (can specify multiple times)\n"
 "  -N, --ncontigs <N>    Pull out <N> contigs from random kmers [default: 0, no limit]\n"
 "  -s, --seed <in.fa>    Use seed kmers from a file. Reads must be of kmer length\n"
 "  -r, --reseed          Sample seed kmers with replacement\n"
@@ -177,14 +177,14 @@ int ctx_contigs(int argc, char **argv)
   ncols = gpath_load_sample_pop(gfiles, num_gfiles,
                                 gpfiles.b, gpfiles.len, colour);
 
-  // Check for compatibility between graph files and path files
+  // Check for compatibility between graph files and link files
   // pop_colour is colour 1
   graphs_gpaths_compatible(gfiles, num_gfiles, gpfiles.b, gpfiles.len, 1);
 
-  if(!genome_size)
+  if(!genome_size && (conf_table_path || num_gfiles))
   {
     char nk_str[50];
-    if(ctx_max_kmers <= 0) die("Please pass --genome <G> if streaming");
+    if(ctx_max_kmers == 0) die("Please pass --genome <G> if streaming");
     genome_size = ctx_max_kmers;
     ulong_to_str(genome_size, nk_str);
     status("Taking number of kmers as genome size: %s", nk_str);
@@ -209,7 +209,8 @@ int ctx_contigs(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false,
+                                  kmers_in_hash, false);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -275,7 +276,7 @@ int ctx_contigs(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  // Load path files
+  // Load link files
   for(i = 0; i < gpfiles.len; i++) {
     gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
     gpath_reader_close(&gpfiles.b[i]);

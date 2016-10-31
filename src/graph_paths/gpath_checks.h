@@ -8,7 +8,7 @@
 #include "db_node.h"
 
 /**
- * Check we are only loading path files into the given colour. Calls die()
+ * Check we are only loading link files into the given colour. Calls die()
  * with error message on failure.
  */
 void gpaths_only_for_colour(const GPathReader *gpfiles, size_t num_gpfiles,

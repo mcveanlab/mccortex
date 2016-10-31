@@ -16,10 +16,10 @@ seq.fa:
 	echo ACTTCTTCGAAAAAAAAAAAAAAATACTGGCCCTAACTTCTTCGAAAAAA >> seq.fa
 
 seq.k15.ctx: seq.fa
-	$(MCCORTEX) build -k 15 --sample MasterSeq --seq seq.fa seq.k15.ctx
+	$(MCCORTEX) build -q -k 15 --sample MasterSeq --seq seq.fa seq.k15.ctx
 
 seq.k15.unitigs.dot: seq.k15.ctx
-	$(MCCORTEX) unitigs --dot $< > $@
+	$(MCCORTEX) unitigs -q --dot $< > $@
 
 seq.k15.kmers.dot: seq.k15.ctx
 	$(CTX2DOT) $< > $@

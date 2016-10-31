@@ -3,8 +3,8 @@
 
 static void error_cleaning_init(ErrorCleaning *ec)
 {
-  ec->cleaned_tips = ec->cleaned_snodes = ec->cleaned_kmers = false;
-  ec->clean_snodes_thresh = ec->clean_kmers_thresh = 0;
+  ec->cleaned_tips = ec->cleaned_unitigs = ec->cleaned_kmers = false;
+  ec->clean_unitigs_thresh = ec->clean_kmers_thresh = 0;
   ec->is_graph_intersection = false;
   strbuf_set(&ec->intersection_name, "undefined");
 }
@@ -23,9 +23,9 @@ static void error_cleaning_dealloc(ErrorCleaning *ec)
 static void error_cleaning_cpy(ErrorCleaning *dst, const ErrorCleaning *src)
 {
   dst->cleaned_tips = src->cleaned_tips;
-  dst->cleaned_snodes = src->cleaned_snodes;
+  dst->cleaned_unitigs = src->cleaned_unitigs;
   dst->cleaned_kmers = src->cleaned_kmers;
-  dst->clean_snodes_thresh = src->clean_snodes_thresh;
+  dst->clean_unitigs_thresh = src->clean_unitigs_thresh;
   dst->clean_kmers_thresh = src->clean_kmers_thresh;
   dst->is_graph_intersection = src->is_graph_intersection;
   strbuf_set_buff(&dst->intersection_name, &src->intersection_name);
@@ -34,14 +34,14 @@ static void error_cleaning_cpy(ErrorCleaning *dst, const ErrorCleaning *src)
 static void error_cleaning_merge(ErrorCleaning *dst, const ErrorCleaning *src)
 {
   dst->cleaned_tips |= src->cleaned_tips;
-  dst->cleaned_snodes |= src->cleaned_snodes;
+  dst->cleaned_unitigs |= src->cleaned_unitigs;
   dst->cleaned_kmers |= src->cleaned_kmers;
 
-  if(src->clean_snodes_thresh > 0 &&
-     (dst->clean_snodes_thresh == 0 ||
-      src->clean_snodes_thresh < dst->clean_snodes_thresh))
+  if(src->clean_unitigs_thresh > 0 &&
+     (dst->clean_unitigs_thresh == 0 ||
+      src->clean_unitigs_thresh < dst->clean_unitigs_thresh))
   {
-    dst->clean_snodes_thresh = src->clean_snodes_thresh;
+    dst->clean_unitigs_thresh = src->clean_unitigs_thresh;
   }
 
   if(src->clean_kmers_thresh > 0 &&

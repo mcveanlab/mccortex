@@ -90,8 +90,8 @@ static void print_header(GraphFileHeader *h, size_t num_of_kmers)
       printf("  tip clipping: %s\n", (ec->cleaned_tips == 0 ? "no" : "yes"));
 
       printf("  remove low coverage unitigs: %s [threshold: <%u]\n",
-             ec->cleaned_snodes ? "yes" : "no",
-             ec->clean_snodes_thresh);
+             ec->cleaned_unitigs ? "yes" : "no",
+             ec->clean_unitigs_thresh);
 
       printf("  remove low coverage kmers: %s [threshold: <%u]\n",
              ec->cleaned_kmers ? "yes" : "no",
@@ -187,7 +187,7 @@ int ctx_view(int argc, char **argv)
   Covg covgs[ncols], keep_kmer;
   Edges edges[ncols];
 
-  bool direct_read = file_filter_is_direct(&gfile.fltr);
+  bool direct_read = file_filter_direct(&gfile.fltr);
 
   if(parse_kmers || print_kmers)
   {

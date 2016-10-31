@@ -33,7 +33,7 @@ void graph_loading_print_status(const GraphFileReader *file)
   const FileFilter *fltr = &file->fltr;
   char nkmers_str[100], filesize_str[100];
 
-  file_filter_status(fltr);
+  file_filter_status(fltr, false);
 
   if(isatty(fileno(file->fh))) status("  reading from a stream.");
   else {
@@ -43,37 +43,13 @@ void graph_loading_print_status(const GraphFileReader *file)
   }
 }
 
-// if only_load_if_in_colour is >= 0, only kmers with coverage in existing
-// colour only_load_if_in_colour will be loaded.
-// We assume only_load_if_in_colour < load_first_colour_into
-// if all_kmers_are_unique != 0 an error is thrown if a node already exists
-// If stats != NULL, updates:
-//   stats->num_kmers_loaded
-//   stats->total_bases_read
-
-/*!
-  @return number of kmers loaded
- */
-size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
-                  GraphLoadingStats *stats)
+// Load ginfo from file header into the graph and check compatible
+void graph_load_ginfo(dBGraph *graph, GraphFileReader *file)
 {
-  dBGraph *graph = prefs.db_graph;
-  GraphInfo *ginfo = graph->ginfo;
-  size_t i, ncols = file_filter_into_ncols(&file->fltr), fromcol, intocol;
   FileFilter *fltr = &file->fltr;
+  GraphInfo *ginfo = graph->ginfo;
   GraphFileHeader *hdr = &file->hdr;
-
-  ctx_assert(file_filter_num(fltr) > 0);
-
-  // Print status
-  graph_loading_print_status(file);
-
-  // Functions such as merging multiple coloured graphs required us to load
-  // each graph twice. It is convenient to do the fseek here.
-  if(!file_filter_isstdin(fltr)) {
-    if(graph_file_fseek(file, file->hdr_size, SEEK_SET) != 0)
-      die("fseek failed: %s", strerror(errno));
-  }
+  size_t i, ncols = file_filter_into_ncols(fltr), fromcol, intocol;
 
   // Check we can load this graph file into db_graph (kmer size + num colours)
   if(hdr->kmer_size != graph->kmer_size)
@@ -97,6 +73,38 @@ size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
 
   // Update number of colours loaded
   graph->num_of_cols_used = MAX2(graph->num_of_cols_used, ncols);
+}
+
+// We assume only_load_if_in_colour < load_first_colour_into
+// if all_kmers_are_unique != 0 an error is thrown if a node already exists
+// If stats != NULL, updates:
+//   stats->num_kmers_loaded
+//   stats->total_bases_read
+
+/*!
+  @return number of kmers loaded
+ */
+size_t graph_load(GraphFileReader *file, const GraphLoadingPrefs prefs,
+                  GraphLoadingStats *stats)
+{
+  dBGraph *graph = prefs.db_graph;
+  FileFilter *fltr = &file->fltr;
+  size_t i, ncols = file_filter_into_ncols(fltr);
+
+  ctx_assert(file_filter_num(fltr) > 0);
+
+  // Print status
+  graph_loading_print_status(file);
+
+  // Functions such as merging multiple coloured graphs required us to load
+  // each graph twice. It is convenient to do the fseek here.
+  if(!file_filter_isstdin(fltr)) {
+    if(graph_file_fseek(file, file->hdr_size, SEEK_SET) != 0)
+      die("fseek failed: %s", strerror(errno));
+  }
+
+  // Load ginfo from file header into the graph and check compatible
+  graph_load_ginfo(graph, file);
 
   // Read kmers, align colours to those they are updating
   //  e.g. covgs[i] -> colour i in the graph

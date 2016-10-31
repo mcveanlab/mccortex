@@ -1,0 +1,10 @@
+At k=21, ~0.2%[1] of mutations add a new edge between existing kmers.
+With an error rate of 0.5% and 100X coverage, there are 500,000 seqn errors[2].
+Therefore we add approximately ~1325 new edges[3] to the graph with errors, even
+if we clean off all kmers due to sequencing errors. This equates to an edge every
+1000bp.
+
+
+[1] 7951 / (3*10**6), see seqn.errors.csv
+[2] 100*10**6*0.005, 100X coverage, ref is 1Mbp, 0.5% sequencing error rate
+[3] 500000*0.002, 500,000 errors, 0.2% are likely to be edges between existing kmers

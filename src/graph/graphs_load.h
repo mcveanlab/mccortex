@@ -46,8 +46,9 @@ static inline GraphLoadingPrefs graph_loading_prefs(dBGraph *graph)
 // Print loading message
 void graph_loading_print_status(const GraphFileReader *file);
 
-// if only_load_if_in_colour is >= 0, only kmers with coverage in existing
-// colour only_load_if_in_colour will be loaded.
+// Load ginfo from file header into the graph and check compatible
+void graph_load_ginfo(dBGraph *graph, GraphFileReader *file);
+
 // if clean_colours != 0 an error is thrown if a node already exists
 // returns the number of colours in the binary
 // If stats != NULL, updates:

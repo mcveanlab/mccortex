@@ -33,6 +33,7 @@ const char join_usage[] =
 "  -i, --intersect <a.ctx> Only load the kmers that are in graph A.ctx. Can be\n"
 "                          specified multiple times. <a.ctx> is NOT merged into\n"
 "                          the output file.\n"
+"  -S, --sort              Output sorted graph file\n"
 "\n"
 "  Files can be specified with specific colours: samples.ctx:2,3\n"
 "  Offset specifies where to load the first colour: 3:samples.ctx\n"
@@ -49,6 +50,7 @@ static struct option longopts[] =
 // command specific
   {"ncols",        required_argument, NULL, 'N'},
   {"intersect",    required_argument, NULL, 'i'},
+  {"sort",         no_argument,       NULL, 'S'},
   {NULL, 0, NULL, 0}
 };
 
@@ -64,6 +66,7 @@ int ctx_join(int argc, char **argv)
   struct MemArgs memargs = MEM_ARGS_INIT;
   const char *out_path = NULL;
   size_t use_ncols = 0;
+  bool sort_kmers = false;
 
   GraphFileReader tmp_gfile;
   GraphFileBuffer isec_gfiles_buf;
@@ -92,6 +95,7 @@ int ctx_join(int argc, char **argv)
         file_filter_flatten(&tmp_gfile.fltr, 0);
         gfile_buf_push(&isec_gfiles_buf, &tmp_gfile, 1);
         break;
+      case 'S': cmd_check(!sort_kmers,cmd); sort_kmers = true; break;
       case ':': /* BADARG */
       case '?': /* BADCH getopt_long has already printed error */
         // cmd_print_usage(NULL);
@@ -210,7 +214,8 @@ int ctx_join(int argc, char **argv)
   size_t bits_per_kmer, kmers_in_hash, graph_mem;
 
   bits_per_kmer = sizeof(BinaryKmer)*8 +
-                  (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols;
+                  (sizeof(Covg) + sizeof(Edges)) * 8 * use_ncols +
+                  (sort_kmers ? sizeof(hkey_t)*8 : 0);
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
                                         memargs.mem_to_use_set,
@@ -304,7 +309,7 @@ int ctx_join(int argc, char **argv)
 
   graph_writer_merge_mkhdr(out_path, gfiles, num_gfiles,
                           kmers_loaded, colours_loaded, intersect_edges,
-                          intsct_gname_ptr, &db_graph);
+                          intsct_gname_ptr, sort_kmers, &db_graph);
 
   if(take_intersect)
     db_graph.col_edges -= db_graph.ht.capacity;

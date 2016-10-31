@@ -239,7 +239,7 @@ int ctx_subgraph(int argc, char **argv)
   graph_writer_merge_mkhdr(out_path, gfiles, num_gfiles,
                           kmers_loaded, colours_loaded,
                           intersect_edges, intersect_gname.b,
-                          &db_graph);
+                          false, &db_graph);
 
   ctx_free(intersect_edges);
   strbuf_dealloc(&intersect_gname);

@@ -12,7 +12,7 @@
 const char pview_usage[] =
 "usage: "CMD" pview [options] [-p <in.ctp>] <in.ctx> [in2.ctx ...]\n"
 "\n"
-"  View cortex path files (.ctp).\n"
+"  View cortex link files (.ctp).\n"
 "\n"
 "  -h, --help             This help message\n"
 "  -q, --quiet            Silence status output normally printed to STDERR\n"
@@ -20,7 +20,7 @@ const char pview_usage[] =
 // "  -o, --out <out.txt>    Output file [required]\n"
 "  -m, --memory <mem>     Memory to use\n"
 "  -n, --nkmers <kmers>   Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -p, --paths <in.ctp>   Load path file (can specify multiple times)\n"
+"  -p, --paths <in.ctp>   Load link file (can specify multiple times)\n"
 // "  -H, --header-only      Only print the header (no paths)\n"
 // "  -P, --paths-only       Only print the paths (no header)\n"
 "\n";
@@ -134,7 +134,7 @@ int ctx_pview(int argc, char **argv)
   if(out_path == NULL) out_path = "-";
 
   if(optind >= argc)   cmd_print_usage("Please give input graph files");
-  if(gpfiles.len == 0) cmd_print_usage("Please give input path files");
+  if(gpfiles.len == 0) cmd_print_usage("Please give input link files");
 
   if(header_only && paths_only) cmd_print_usage("Cannot use both -H and -P");
 
@@ -169,7 +169,8 @@ int ctx_pview(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, true);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, true,
+                                  kmers_in_hash, false);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -209,7 +210,7 @@ int ctx_pview(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  // Load path files
+  // Load link files
   for(i = 0; i < gpfiles.len; i++)
     gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
@@ -247,7 +248,7 @@ int ctx_pview(int argc, char **argv)
 
   if(fout != stdout) fclose(fout);
 
-  // Close input path files
+  // Close input link files
   for(i = 0; i < gpfiles.len; i++)
     gpath_reader_close(&gpfiles.b[i]);
   gpfile_buf_dealloc(&gpfiles);

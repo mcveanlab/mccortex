@@ -16,7 +16,9 @@
 const char inferedges_usage[] =
 "usage: "CMD" inferedges [options] <pop.ctx>\n"
 "\n"
-"  Infer edges in a population graph.  By default adds all missing edges (--all).\n"
+"  Infer edges adds edges between all kmers that share k-1 bases.\n"
+"  By default adds all missing edges (--all). To add only edges that exist in\n"
+"  at least one other sample in the population, use --pop.\n"
 "  It is important that you run this step before doing read threading.\n"
 "\n"
 "  -h, --help            This help message\n"
@@ -54,7 +56,7 @@ static size_t inferedges_on_mmap(const dBGraph *db_graph, bool add_all_edges,
 {
   // ctx_assert2(file->strm.b == NULL, "File should not be buffered");
   ctx_assert(db_graph->num_of_cols == file->hdr.num_of_cols);
-  ctx_assert(file_filter_is_direct(&file->fltr));
+  ctx_assert(file_filter_from_direct(&file->fltr));
   ctx_assert2(!isatty(fileno(file->fh)), "Use inferedges_on_stream() instead");
   ctx_assert(file->num_of_kmers >= 0);
   ctx_assert(file->file_size >= 0);
@@ -93,8 +95,7 @@ static size_t inferedges_on_mmap(const dBGraph *db_graph, bool add_all_edges,
     memcpy(covgs,   fh_covgs, ncols * sizeof(Covg));
     memcpy(edges,   fh_edges, ncols * sizeof(Edges));
 
-    updated = (add_all_edges ? infer_all_edges(bkmer, edges, covgs, db_graph)
-                             : infer_pop_edges(bkmer, edges, covgs, db_graph));
+    updated = infer_kmer_edges(bkmer, !add_all_edges, edges, covgs, db_graph);
 
     if(updated) {
       memcpy(fh_covgs, covgs, ncols * sizeof(Covg));
@@ -115,7 +116,7 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
                                  GraphFileReader *file, FILE *fout)
 {
   // ctx_assert(db_graph->num_of_cols == file->hdr.num_of_cols);
-  ctx_assert(file_filter_is_direct(&file->fltr));
+  ctx_assert(file_filter_from_direct(&file->fltr));
   ctx_assert2(!isatty(fileno(file->fh)), "Use inferedges_on_stream() instead");
   ctx_assert(fout != NULL);
   ctx_assert(fileno(file->fh) != fileno(fout));
@@ -129,20 +130,18 @@ static size_t inferedges_on_file(const dBGraph *db_graph, bool add_all_edges,
   if(graph_file_fseek(file, file->hdr_size, SEEK_SET) != 0)
     die("graph_file_fseek failed: %s", strerror(errno));
 
-  const size_t ncols = file->hdr.num_of_cols;
+  const size_t file_ncols = file->hdr.num_of_cols;
   BinaryKmer bkmer;
-  Edges edges[ncols];
-  Covg covgs[ncols];
+  Edges edges[file_ncols];
+  Covg covgs[file_ncols];
 
   size_t num_kmers_edited = 0;
   bool updated;
 
   while(graph_file_read_reset(file, &bkmer, covgs, edges))
   {
-    updated = (add_all_edges ? infer_all_edges(bkmer, edges, covgs, db_graph)
-                             : infer_pop_edges(bkmer, edges, covgs, db_graph));
-
-    graph_write_kmer(fout, file->hdr.num_of_cols, bkmer, covgs, edges);
+    updated = infer_kmer_edges(bkmer, !add_all_edges, edges, covgs, db_graph);
+    graph_write_kmer(fout, file_ncols, bkmer, covgs, edges);
 
     num_kmers_edited += updated;
   }
@@ -220,7 +219,7 @@ int ctx_infer_edges(int argc, char **argv)
   bool use_buf = true;
   graph_file_open2(&file, graph_path, reading_stream ? "r" : "r+", use_buf, 0);
 
-  if(!file_filter_is_direct(&file.fltr))
+  if(!file_filter_from_direct(&file.fltr))
     cmd_print_usage("Inferedges with filter not implemented - sorry");
 
   FILE *fout = NULL;
@@ -290,7 +289,7 @@ int ctx_infer_edges(int argc, char **argv)
     ctx_assert(fout != NULL);
     num_kmers_edited = infer_edges(num_of_threads, add_all_edges, &db_graph);
     graph_write_header(fout, &file.hdr);
-    graph_write_all_kmers(fout, &db_graph, false);
+    graph_write_all_kmers_direct(fout, &db_graph, false, &file.hdr);
   }
   else if(fout == NULL) {
     // Reading from file, writing to same file
@@ -304,11 +303,11 @@ int ctx_infer_edges(int argc, char **argv)
 
   char modified_str[100], kmers_str[100];
   ulong_to_str(num_kmers_edited, modified_str);
-  ulong_to_str(db_graph.ht.num_kmers, kmers_str);
+  ulong_to_str(hash_table_nkmers(&db_graph.ht), kmers_str);
 
   double modified_rate = 0;
-  if(db_graph.ht.num_kmers)
-    modified_rate = (100.0 * num_kmers_edited) / db_graph.ht.num_kmers;
+  if(hash_table_nkmers(&db_graph.ht))
+    modified_rate = (100.0 * num_kmers_edited) / hash_table_nkmers(&db_graph.ht);
 
   status("%s of %s (%.2f%%) nodes modified\n",
          modified_str, kmers_str, modified_rate);

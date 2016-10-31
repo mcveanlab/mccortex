@@ -139,7 +139,7 @@ static void handle_read2(CorrectReadsWorker *wrkr,
     // Copy first base from each kmer
     for(j = 0; j < num_neg; j++) {
       // printf("%zu: %zu\n", j, node_arr[j].key);
-      ctx_assert(HASH_ENTRY_ASSIGNED(db_graph->ht.table[node_arr[j].key]));
+      ctx_assert(hash_table_assigned(&db_graph->ht, node_arr[j].key));
       nuc = db_node_get_first_nuc(node_arr[j], db_graph);
       rbuf->b[rbuf->end++] = dna_nuc_to_char(nuc);
       qbuf->b[qbuf->end++] = fq_zero;
@@ -370,7 +370,7 @@ void correct_reads(CorrectAlnInput *inputs, size_t num_inputs,
   correct_aln_dump_stats(aln_stats, load_stats,
                          dump_seqgap_hist_path,
                          dump_fraglen_hist_path,
-                         db_graph->ht.num_kmers);
+                         hash_table_nkmers(&db_graph->ht));
 
   for(i = 0; i < num_threads; i++)
     correct_reads_worker_dealloc(&wrkrs[i]);

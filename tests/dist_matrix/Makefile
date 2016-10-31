@@ -9,22 +9,20 @@ DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 # - `sort -R` (sort with hash of key)
 # - `shuf` shuffle
 #  So have to use perl
+SHUFFLE=perl -MList::Util=shuffle -e 'print shuffle<STDIN>'
 
 all: truth.tsv dist.tsv
 	diff -q truth.tsv dist.tsv
 	@echo "Success."
 
 tmp.fa:
-	for i in {1..200}; do $(DNACAT) -n $(K); done | sort | uniq | \
-	perl -MList::Util=shuffle -e 'print shuffle<STDIN>' > $@
+	for i in {1..200}; do $(DNACAT) -n $(K); done | sort | uniq | $(SHUFFLE) > $@
 
 beauty.fa: tmp.fa
-	head -n 160 tmp.fa | \
-	perl -MList::Util=shuffle -e 'print shuffle<STDIN>' > $@
+	head -n 160 tmp.fa | $(SHUFFLE) > $@
 
 beast.fa:
-	tail -n 140 tmp.fa | \
-	perl -MList::Util=shuffle -e 'print shuffle<STDIN>' > $@
+	tail -n 140 tmp.fa | $(SHUFFLE) > $@
 
 truth.tsv: beauty.fa beast.fa
 	perl -MList::Util=min,max -W -e 'use strict; use warnings; '\
@@ -33,13 +31,13 @@ truth.tsv: beauty.fa beast.fa
 'my ($$N,$$H,$$T) = map {my ($$x) = ($$_ =~ /(\d+)/); $$x} ($$a,$$b,$$c); '\
 'print ".\tcol0\tcol1\n"; '\
 'print "col0\t$$H\t".max(min($$H,$$N)-max($$N-$$T,0),0)."\n"; '\
-'print "col1\t0\t$$T\n";' > $@
+'print "col1\t.\t$$T\n";' > $@
 
 dist.tsv: beauty.ctx beast.ctx
-	$(MCCORTEX) dist --out $@ beauty.ctx beast.ctx
+	$(MCCORTEX) dist -q --out $@ beauty.ctx beast.ctx
 
 %.ctx: %.fa
-	$(MCCORTEX) build -m 1M -k $(K) --sample $* --seq $< $@
+	$(MCCORTEX) build -q -m 1M -k $(K) --sample $* --seq $< $@
 
 $(DIRS):
 	mkdir -p $@

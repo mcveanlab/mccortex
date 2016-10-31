@@ -19,7 +19,7 @@ void test_bkmer_str()
 
     TASSERT(!binary_kmer_oversized(bkmer0, k));
     TASSERT(!binary_kmer_oversized(bkmer1, k));
-    TASSERT(binary_kmers_are_equal(bkmer0,bkmer1));
+    TASSERT(binary_kmer_eq(bkmer0,bkmer1));
     TASSERT(strcmp(str0,str1) == 0);
   }
 }
@@ -40,8 +40,8 @@ void test_bkmer_revcmp()
     TASSERT(!binary_kmer_oversized(bkmer1, k));
     TASSERT(!binary_kmer_oversized(bkmer2, k));
     // kmer-size is odd, forward != reverse complement
-    TASSERT(!binary_kmers_are_equal(bkmer0, bkmer1));
-    TASSERT(binary_kmers_are_equal(bkmer0, bkmer2));
+    TASSERT(!binary_kmer_eq(bkmer0, bkmer1));
+    TASSERT(binary_kmer_eq(bkmer0, bkmer2));
   }
 }
 
@@ -63,7 +63,7 @@ void test_bkmer_shifts()
     bkmer1 = binary_kmer_left_shift_one_base(bkmer1, k);
     bkmer1 = binary_kmer_right_shift_one_base(bkmer1);
     binary_kmer_set_first_nuc(&bkmer2, 0, k);
-    TASSERT2(binary_kmers_are_equal(bkmer1,bkmer2), "k:%zu", k);
+    TASSERT2(binary_kmer_eq(bkmer1,bkmer2), "k:%zu", k);
     TASSERT(!binary_kmer_oversized(bkmer1, k));
     TASSERT(!binary_kmer_oversized(bkmer2, k));
 
@@ -71,7 +71,7 @@ void test_bkmer_shifts()
     bkmer1 = binary_kmer_right_shift_one_base(bkmer1);
     bkmer1 = binary_kmer_left_shift_one_base(bkmer1, k);
     binary_kmer_set_last_nuc(&bkmer2, 0);
-    TASSERT(binary_kmers_are_equal(bkmer1,bkmer2));
+    TASSERT(binary_kmer_eq(bkmer1,bkmer2));
     TASSERT(!binary_kmer_oversized(bkmer1, k));
     TASSERT(!binary_kmer_oversized(bkmer2, k));
   }
@@ -87,8 +87,8 @@ void test_bkmer_shifts()
       bkmer1 = binary_kmer_left_shift_one_base(bkmer1, k);
       bkmer2 = binary_kmer_right_shift_one_base(bkmer2);
     }
-    TASSERT(binary_kmers_are_equal(bkmer1,zero_bkmer));
-    TASSERT(binary_kmers_are_equal(bkmer2,zero_bkmer));
+    TASSERT(binary_kmer_eq(bkmer1,zero_bkmer));
+    TASSERT(binary_kmer_eq(bkmer2,zero_bkmer));
   }
 
   // Copy from one bkmer to another by shifting a base at a time
@@ -107,8 +107,8 @@ void test_bkmer_shifts()
       TASSERT(!binary_kmer_oversized(bkmer1, k));
       TASSERT(!binary_kmer_oversized(bkmer2, k));
     }
-    TASSERT(binary_kmers_are_equal(bkmer1,zero_bkmer));
-    TASSERT(binary_kmers_are_equal(bkmer2,bkmer0));
+    TASSERT(binary_kmer_eq(bkmer1,zero_bkmer));
+    TASSERT(binary_kmer_eq(bkmer2,bkmer0));
 
     // copy from bkmer1 -> bkmer2, shifting left
     bkmer1 = bkmer0;
@@ -120,8 +120,8 @@ void test_bkmer_shifts()
       TASSERT(!binary_kmer_oversized(bkmer1, k));
       TASSERT(!binary_kmer_oversized(bkmer2, k));
     }
-    TASSERT(binary_kmers_are_equal(bkmer1,zero_bkmer));
-    TASSERT(binary_kmers_are_equal(bkmer2,bkmer0));
+    TASSERT(binary_kmer_eq(bkmer1,zero_bkmer));
+    TASSERT(binary_kmer_eq(bkmer2,bkmer0));
   }
 }
 

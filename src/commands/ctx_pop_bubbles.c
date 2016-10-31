@@ -169,11 +169,11 @@ int ctx_pop_bubbles(int argc, char **argv)
   ulong_to_str(npopped, npopped_str);
   status("Popped %s bubbles", npopped_str);
 
-  size_t nkmers0 = db_graph.ht.num_kmers;
+  size_t nkmers0 = hash_table_nkmers(&db_graph.ht);
   status("Removing nodes...");
   for(i = 0; i < nkwords; i++) rmvbits[i] = ~rmvbits[i];
   prune_nodes_lacking_flag(nthreads, rmvbits, &db_graph);
-  size_t nkmers1 = db_graph.ht.num_kmers;
+  size_t nkmers1 = hash_table_nkmers(&db_graph.ht);
 
   ctx_assert(nkmers1 <= nkmers0);
   char nkmers0str[50], nkmers1str[50], ndiffstr[50];
@@ -195,7 +195,7 @@ int ctx_pop_bubbles(int argc, char **argv)
   else
   {
     status("Saving to: %s\n", out_path);
-    graph_writer_save_mkhdr(out_path, &db_graph, false, NULL, 0, ncols);
+    graph_writer_save_mkhdr(out_path, &db_graph, false, ncols);
   }
 
   ctx_free(visited);

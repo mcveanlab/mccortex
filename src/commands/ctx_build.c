@@ -38,7 +38,7 @@ const char build_usage[] =
 "  -I, --intersect <i.ctx>  Only load kmers that appear in i.ctx. Multiple -I\n"
 "                           graphs will be merged, not intersected. Treated as\n"
 "                           single colour graphs.\n"
-" -S, --sort                Output a graph file ordered by kmer\n"
+"  -S, --sort               Output a graph file ordered by kmer\n"
 "\n"
 "  Note: Argument must come before input file\n"
 "  PCR duplicate removal works by ignoring read (pairs) if (both) reads\n"
@@ -267,7 +267,7 @@ int ctx_build(int argc, char **argv)
 
   // Print graphs to be loaded
   for(i = 0; i < gfilebuf.len; i++) {
-    file_filter_status(&gfilebuf.b[i].fltr);
+    file_filter_status(&gfilebuf.b[i].fltr, false);
     max_kmers += gfilebuf.b[i].num_of_kmers;
   }
 
@@ -312,7 +312,7 @@ int ctx_build(int argc, char **argv)
                   (sizeof(Covg) + sizeof(Edges)) * 8 * output_colours +
                   (gisecbuf.len > 0 ? sizeof(Edges)*8 : 0) +
                   (remove_pcr_used ? 2 : 0) +
-                  (sort_kmers ? sizeof(hkey_t) : 0);
+                  (sort_kmers ? sizeof(hkey_t)*8 : 0);
 
   kmers_in_hash = cmd_get_kmers_in_hash(memargs.mem_to_use,
                                         memargs.mem_to_use_set,
@@ -422,7 +422,7 @@ int ctx_build(int argc, char **argv)
   }
 
   status("Dumping graph...\n");
-  graph_writer_save_mkhdr(out_path, &db_graph, sort_kmers, NULL, 0, output_colours);
+  graph_writer_save_mkhdr(out_path, &db_graph, sort_kmers, output_colours);
 
   build_graph_task_buf_dealloc(&gtaskbuf);
   gfile_buf_dealloc(&gfilebuf);

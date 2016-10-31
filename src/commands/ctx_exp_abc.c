@@ -23,7 +23,7 @@ const char exp_abc_usage[] =
 "  -f, --force             Overwrite output files\n"
 "  -m, --memory <mem>      Memory to use\n"
 "  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
-"  -p, --paths <in.ctp>    Load path file (can specify multiple times)\n"
+"  -p, --paths <in.ctp>    Load link file (can specify multiple times)\n"
 "  -N, --repeat <N>        Sample N kmers (Default "QUOTE_MACRO(DEFAULT_NUM_REPEATS)")\n"
 "  -M, --max-AB-dist <M>   Max A->B contig (Default "QUOTE_MACRO(DEFAULT_MAX_AB_DIST)")\n"
 "  -P, --print             Print failed contigs\n"
@@ -130,7 +130,7 @@ static void print_failed(dBNode node, const dBNodeBuffer *nbuf,
 {
   const size_t kmer_size = db_graph->kmer_size;
   char bkmerstr[MAX_KMER_SIZE+1];
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
+  BinaryKmer bkmer = db_node_get_bkey(db_graph, node.key);
   binary_kmer_to_str(bkmer, kmer_size, bkmerstr);
   printf(">%s:%i %s %s\n", bkmerstr, node.orient,
          is_AB ? "A->B" : "B->C", prime_AB ? "prime_AB" : "walk_AB");
@@ -412,7 +412,8 @@ int ctx_exp_abc(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false,
+                                  kmers_in_hash, false);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -441,7 +442,7 @@ int ctx_exp_abc(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  // Load path files
+  // Load link files
   for(i = 0; i < gpfiles.len; i++) {
     gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
     gpath_reader_close(&gpfiles.b[i]);

@@ -10,19 +10,19 @@
 
 const char health_usage[] =
 "usage: "CMD" check [options] <graph.ctx>\n"
-"  Load a graph into memory along with any path files to check they are valid.\n"
+"  Load a graph into memory along with any link files to check they are valid.\n"
 "\n"
 "  -h, --help             This help message\n"
 "  -q, --quiet            Silence status output normally printed to STDERR\n"
 "  -m, --memory <mem>     Memory to use\n"
 "  -n, --nkmers <kmers>   Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>      Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
-"  -p, --paths <in.ctp>   Load path file (can specify multiple times)\n"
+"  -p, --paths <in.ctp>   Load link file (can specify multiple times)\n"
 //
 "  -E, --no-edge-check    Don't check kmer edges\n"
 "\n";
 
-// Note: although it seems like we should load path files one at a time and
+// Note: although it seems like we should load link files one at a time and
 //       check them, that has the down side of not checking merging code.
 //       Therefore we load them all at once, which requires more memory.
 
@@ -90,7 +90,7 @@ int ctx_health_check(int argc, char **argv)
   const char *ctx_path = argv[optind];
 
   if(!do_edge_check && gpfiles.len == 0) {
-    cmd_print_usage("-E, --no-edge-check and no path files (-p in.ctp). "
+    cmd_print_usage("-E, --no-edge-check and no link files (-p in.ctp). "
                     "Nothing to check.");
   }
 
@@ -102,7 +102,7 @@ int ctx_health_check(int argc, char **argv)
   graph_file_open(&gfile, ctx_path);
   size_t ncols = file_filter_into_ncols(&gfile.fltr);
 
-  // Check for compatibility between graph files and path files
+  // Check for compatibility between graph files and link files
   graphs_gpaths_compatible(&gfile, 1, gpfiles.b, gpfiles.len, -1);
 
   //
@@ -124,7 +124,8 @@ int ctx_health_check(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false,
+                                  kmers_in_hash, false);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -147,7 +148,7 @@ int ctx_health_check(int argc, char **argv)
 
   graph_load(&gfile, gprefs, NULL);
 
-  // Load path files
+  // Load link files
   for(i = 0; i < gpfiles.len; i++) {
     gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
     gpath_reader_close(&gpfiles.b[i]);

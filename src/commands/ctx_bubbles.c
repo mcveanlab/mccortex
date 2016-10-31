@@ -28,14 +28,14 @@ const char bubbles_usage[] =
 "  -m, --memory <mem>      Memory to use\n"
 "  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>       Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
-"  -p, --paths <in.ctp>    Load path file (can specify multiple times)\n"
+"  -p, --paths <in.ctp>    Load link file (can specify multiple times)\n"
 //
 "  -H, --haploid <col>     List of haploid colours (e.g. ref colour); '*' means all\n"
 "  -A, --max-allele <len>  Max bubble branch length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_ALLELE)"]\n"
 "  -F, --max-flank <len>   Max flank length in kmers [default: "QUOTE_VALUE(DEFAULT_MAX_FLANK)"]\n"
 "  -S, --keep-serial       Keep serial bubbles. Use if mapping is hard. Higher FP.\n"
 "\n"
-"  When loading path files with -p, use offset (e.g. 2:in.ctp) to specify\n"
+"  When loading link files with -p, use offset (e.g. 2:in.ctp) to specify\n"
 "  which colour to load the data into.\n"
 "\n";
 
@@ -175,7 +175,8 @@ int ctx_bubbles(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem+thread_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false,
+                                  kmers_in_hash, false);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -213,7 +214,7 @@ int ctx_bubbles(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  // Load path files
+  // Load link files
   for(i = 0; i < gpfiles.len; i++)
     gpath_reader_load(&gpfiles.b[i], GPATH_DIE_MISSING_KMERS, &db_graph);
 
@@ -237,7 +238,7 @@ int ctx_bubbles(int argc, char **argv)
   gzclose(gzout);
   ctx_free(hdrs);
 
-  // Close input path files
+  // Close input link files
   for(i = 0; i < gpfiles.len; i++)
     gpath_reader_close(&gpfiles.b[i]);
   gpfile_buf_dealloc(&gpfiles);

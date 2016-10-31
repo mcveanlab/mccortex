@@ -14,10 +14,10 @@ seq.fa:
 	echo cTGGTGCCTAGAAGGTg >> seq.fa
 
 graph.k$(K).ctx: seq.fa
-	$(MCCORTEX) build -m 1M -k $(K) --sample MsGraph --seq seq.fa graph.k$(K).ctx
+	$(MCCORTEX) build -q -m 1M -k $(K) --sample MsGraph --seq seq.fa graph.k$(K).ctx
 
 subgraph%.k$(K).ctx: graph.k$(K).ctx seed.fa
-	$(MCCORTEX) subgraph --seed seed.fa --unitigs --dist $* -o subgraph$*.k$(K).ctx graph.k$(K).ctx
+	$(MCCORTEX) subgraph -q --seed seed.fa --unitigs --dist $* -o subgraph$*.k$(K).ctx graph.k$(K).ctx
 
 clean:
 	rm -rf subgraph*.k$(K).ctx graph.k$(K).ctx seed.fa seq.fa

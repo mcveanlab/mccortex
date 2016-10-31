@@ -3,6 +3,11 @@
 #include "util.h"
 
 
+size_t gpath_store_mem(size_t graph_capacity, bool split_linked_lists)
+{
+  return graph_capacity*sizeof(GPath*) * (split_linked_lists ? 2 : 1);
+}
+
 // If num_paths != 0, we ensure at least num_paths capacity
 // @split_linked_lists whether you intend to have traverse linked list and
 //                     all linked list separate
@@ -12,7 +17,7 @@ void gpath_store_alloc(GPathStore *gpstore, size_t ncols, size_t graph_capacity,
 {
   memset(gpstore, 0, sizeof(*gpstore));
 
-  size_t store_mem = graph_capacity*sizeof(GPath*) * (split_linked_lists ? 2 : 1);
+  size_t store_mem = gpath_store_mem(graph_capacity, split_linked_lists);
   if(store_mem > mem)
     die("Need at least %zu bytes (only got %zu bytes)", store_mem, mem);
 

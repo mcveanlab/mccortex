@@ -105,7 +105,7 @@ static void simple_test()
   build_graph_from_str_mt(&graph, 4, seq0+2, 11, false);
   build_graph_from_str_mt(&graph, 4, seq1,   12, false);
 
-  TASSERT(graph.ht.num_kmers == 5);
+  TASSERT(hash_table_nkmers(&graph.ht) == 5);
 
   // First edge
   TASSERT(get_edges("TAACAATGACTC", &graph, 0) == ALLEDGES);

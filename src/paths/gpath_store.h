@@ -13,6 +13,8 @@ typedef struct
   GPath **paths_all, **paths_traverse;
 } GPathStore;
 
+size_t gpath_store_mem(size_t graph_capacity, bool split_linked_lists);
+
 // If num_paths != 0, we ensure at least num_paths capacity
 // @split_linked_lists whether you intend to have traverse linked list and
 //                     all linked list separate

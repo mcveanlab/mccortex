@@ -5,7 +5,7 @@
 #include "gpath_store.h"
 
 // Packed structure is 10 bytes
-// Do not use pointes to fields in this struct - they are not aligned
+// Do not use pointers to fields in this struct - they are not aligned
 struct GPEntryStruct
 {
   // 5 bytes each

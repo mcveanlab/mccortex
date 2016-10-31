@@ -21,13 +21,13 @@ static inline uint64_t db_node_hash(dBNode node) {
 //
 // Get Binary kmers
 //
-static inline BinaryKmer db_node_get_bkmer(const dBGraph *db_graph, hkey_t hkey) {
-  return db_graph->ht.table[hkey];
+static inline BinaryKmer db_node_get_bkey(const dBGraph *db_graph, hkey_t hkey) {
+  return hash_table_fetch(&db_graph->ht, hkey);
 }
 
 // Get an oriented bkmer
 #define db_node_oriented_bkmer(graph,node) \
-        bkmer_oriented_bkmer(db_node_get_bkmer(graph,(node).key), \
+        bkmer_oriented_bkmer(db_node_get_bkey(graph,(node).key), \
                              (node).orient, (graph)->kmer_size)
 
 //
@@ -107,7 +107,7 @@ static inline void db_node_set_col_mt(const dBGraph *graph,
 //
 
 #define bkmer_get_orientation(bkmer,bkey) \
-        (binary_kmers_are_equal((bkmer), (bkey)) ? FORWARD : REVERSE)
+        (binary_kmer_eq((bkmer), (bkey)) ? FORWARD : REVERSE)
 
 #define bkmer_oriented_bkmer(bkmer,or,ksize) \
         (or == FORWARD ? bkmer : binary_kmer_reverse_complement(bkmer,ksize))
@@ -135,11 +135,11 @@ static inline void db_node_set_col_mt(const dBGraph *graph,
 #define opposite_orientation(or) rev_orient(or)
 
 #define db_node_get_first_nuc(node,graph) \
-        bkmer_get_first_nuc(db_node_get_bkmer(graph,(node).key), (node).orient,\
+        bkmer_get_first_nuc(db_node_get_bkey(graph,(node).key), (node).orient,\
                             (graph)->kmer_size)
 
 #define db_node_get_last_nuc(node,graph) \
-        bkmer_get_last_nuc(db_node_get_bkmer(graph,(node).key), (node).orient,\
+        bkmer_get_last_nuc(db_node_get_bkey(graph,(node).key), (node).orient,\
                            (graph)->kmer_size)
 
 static inline dBNode db_node_reverse(dBNode node) {
@@ -202,12 +202,13 @@ bool edges_has_precisely_one_edge(Edges edges, Orientation orientation,
 // 1=>A, 2=>C, 4=>G, 8=>T
 // "3b" => [AC] AACTA [ACT]
 // Null terminates string
-static inline void edges_to_char(Edges e, char str[3])
+static inline char* edges_to_char(Edges e, char str[3])
 {
   static const char digits[16] = "0123456789abcdef";
   str[0] = digits[edges_as_nibble(e, REVERSE)];
   str[1] = digits[edges_as_nibble(e, FORWARD)];
   str[2] = '\0';
+  return str;
 }
 
 static inline void edges_print(FILE *fout, Edges e)
@@ -280,9 +281,6 @@ char* db_node_get_edges_str(Edges edges, char *kmer_col_edge_str);
 // Coverages
 //
 
-#define SAFE_ADD_COVG(a,b) ((uint64_t)(a)+(b) > COVG_MAX ? COVG_MAX : (a)+(b))
-#define SAFE_SUM_COVG(a,b) ((a) = SAFE_ADD_COVG((a), (b)))
-
 #define db_node_covg(graph,hkey,col) \
         ((graph)->col_covgs[(hkey)*(graph)->num_of_cols+(col)])
 
@@ -301,7 +299,14 @@ void db_node_increment_coverage(dBGraph *graph, hkey_t hkey, Colour col);
 // Thread safe, overflow safe, coverage increment
 void db_node_increment_coverage_mt(dBGraph *graph, hkey_t hkey, Colour col);
 
-Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey);
+static inline Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey)
+{
+  const Covg *covgs = &db_node_covg(graph,hkey,0);
+  Covg sum_covg = covgs[0];
+  size_t c, ncols = graph->num_of_cols;
+  for(c = 1; c < ncols; c++) SAFE_SUM_COVG(sum_covg, covgs[c]);
+  return sum_covg;
+}
 
 //
 // dBNodeBuffer

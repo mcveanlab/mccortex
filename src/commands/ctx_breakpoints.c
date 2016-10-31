@@ -22,7 +22,7 @@ const char breakpoints_usage[] =
 "  -m, --memory <mem>      Memory to use\n"
 "  -n, --nkmers <kmers>    Number of hash table entries (e.g. 1G ~ 1 billion)\n"
 "  -t, --threads <T>       Number of threads to use [default: "QUOTE_VALUE(DEFAULT_NTHREADS)"]\n"
-"  -p, --paths <in.ctp>    Load path file (can specify multiple times)\n"
+"  -p, --paths <in.ctp>    Load link file (can specify multiple times)\n"
 "  -o, --out <out.txt.gz>  Save calls (gzipped output) [default: STDOUT]\n"
 "  -s, --seq <in>          Trusted input (can specify multiple times)\n"
 "  -r, --minref <N>        Require <N> kmers at ref breakpoint [default: "QUOTE_VALUE(DEFAULT_MIN_REF_NKMERS)"]\n"
@@ -172,7 +172,8 @@ int ctx_breakpoints(int argc, char **argv)
 
   // Paths memory
   size_t rem_mem = memargs.mem_to_use - MIN2(memargs.mem_to_use, graph_mem);
-  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false);
+  path_mem = gpath_reader_mem_req(gpfiles.b, gpfiles.len, ncols, rem_mem, false,
+                                  kmers_in_hash, false);
 
   // Shift path store memory from graphs->paths
   graph_mem -= sizeof(GPath*)*kmers_in_hash;
@@ -218,7 +219,7 @@ int ctx_breakpoints(int argc, char **argv)
 
   hash_table_print_stats(&db_graph.ht);
 
-  // Load path files
+  // Load link files
   for(i = 0; i < gpfiles.len; i++)
     gpath_reader_load(&gpfiles.b[i], true, &db_graph);
 

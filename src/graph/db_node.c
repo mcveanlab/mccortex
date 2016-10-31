@@ -143,18 +143,6 @@ void db_node_increment_coverage_mt(dBGraph *graph, hkey_t hkey, Colour col)
         !__sync_bool_compare_and_swap(&db_node_covg(graph,hkey,col), v, v+1));
 }
 
-Covg db_node_sum_covg(const dBGraph *graph, hkey_t hkey)
-{
-  const Covg *covgs = &db_node_covg(graph,hkey,0);
-  Covg sum_covg = 0;
-  size_t col;
-
-  for(col = 0; col < graph->num_of_cols; col++)
-    SAFE_SUM_COVG(sum_covg, covgs[col]);
-
-  return sum_covg;
-}
-
 //
 // dBNode reversal and shifting
 //
@@ -226,7 +214,7 @@ void db_nodes_left_shift(dBNode *nlist, size_t n, size_t shift)
 size_t db_node_to_str(const dBGraph *db_graph, dBNode node, char *str)
 {
   const size_t kmer_size = db_graph->kmer_size;
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, node.key);
+  BinaryKmer bkmer = db_node_get_bkey(db_graph, node.key);
   binary_kmer_to_str(bkmer, kmer_size, str);
   str[kmer_size] = ':';
   str[kmer_size+1] = '0' + node.orient;
@@ -242,7 +230,7 @@ size_t db_nodes_to_str(const dBNode *nodes, size_t num,
 
   size_t i;
   size_t kmer_size = db_graph->kmer_size;
-  BinaryKmer bkmer = db_node_get_bkmer(db_graph, nodes[0].key);
+  BinaryKmer bkmer = db_node_get_bkey(db_graph, nodes[0].key);
   Nucleotide nuc;
 
   binary_kmer_to_str(bkmer, kmer_size, str);
@@ -320,14 +308,14 @@ void db_nodes_print_verbose(const dBNode *nodes, size_t num,
   BinaryKmer bkmer, bkey;
   char kmerstr[MAX_KMER_SIZE+1], keystr[MAX_KMER_SIZE+1];
 
-  bkmer = db_node_get_bkmer(db_graph, nodes[0].key);
+  bkmer = db_node_get_bkey(db_graph, nodes[0].key);
   bkey = db_node_oriented_bkmer(db_graph, nodes[0]);
   binary_kmer_to_str(bkmer, kmer_size, kmerstr);
   binary_kmer_to_str(bkey, kmer_size, keystr);
   fprintf(out, "%3zu: %s:%i %s\n", (size_t)0, kmerstr, (int)nodes[0].orient, keystr);
 
   for(i = 1; i < num; i++) {
-    bkmer = db_node_get_bkmer(db_graph, nodes[i].key);
+    bkmer = db_node_get_bkey(db_graph, nodes[i].key);
     bkey = db_node_oriented_bkmer(db_graph, nodes[i]);
     binary_kmer_to_str(bkmer, kmer_size, kmerstr);
     binary_kmer_to_str(bkey, kmer_size, keystr);
@@ -375,7 +363,7 @@ bool db_node_check_nodes(const dBNode *nodes, size_t num,
     bkmer1 = db_node_oriented_bkmer(db_graph, nodes[i+1]);
     nuc = binary_kmer_last_nuc(bkmer1);
     tmp = binary_kmer_left_shift_add(bkmer0, kmer_size, nuc);
-    ctx_assert_ret(binary_kmers_are_equal(tmp, bkmer1));
+    ctx_assert_ret(binary_kmer_eq(tmp, bkmer1));
     bkmer0 = bkmer1;
   }
 

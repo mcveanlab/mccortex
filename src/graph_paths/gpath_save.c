@@ -10,7 +10,7 @@
 const char ctp_explanation_comment[] =
 "# This file was generated with McCortex\n"
 "#   written by Isaac Turner <turner.isaac@gmail.com>\n"
-"#   url: "CORTEX_URL"\n"
+"#   url: "MCCORTEX_URL"\n"
 "# \n"
 "# Comment lines begin with a # and are ignored, but must come after the header\n"
 "# Format is:\n"
@@ -81,7 +81,7 @@ cJSON* gpath_save_mkhdr(const char *path,
   cJSON_AddNumberToObject(json, "format_version", CTP_FORMAT_VERSION);
 
   // Add standard cortex header info, including the command being run
-  json_hdr_make_std(json, path, hdrs, nhdrs, db_graph);
+  json_hdr_make_std(json, path, hdrs, nhdrs, db_graph, hash_table_nkmers(&db_graph->ht));
 
   // Get first command (this one), and command specific extra info
   if(cmdstr) {
@@ -150,7 +150,7 @@ void gpath_save_sbuf(hkey_t hkey, StrBuf *sbuf, GPathSubset *subset,
   if(subset->list.len == 0) return;
 
   // Print "<kmer> <npaths>"
-  BinaryKmer bkmer = db_graph->ht.table[hkey];
+  BinaryKmer bkmer = hash_table_fetch(&db_graph->ht, hkey);
   char bkstr[MAX_KMER_SIZE+1];
   binary_kmer_to_str(bkmer, db_graph->kmer_size, bkstr);
 

@@ -43,7 +43,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "pview", .func = ctx_pview, .hide = false,
-  .blurb = "text view of a cortex path file (.ctp)",
+  .blurb = "text view of a cortex link file (.ctp)",
   .usage = pview_usage
 },
 {
@@ -98,7 +98,7 @@ CtxCmd cmdobjs[] = {
 },
 {
   .cmd = "pjoin", .func = ctx_pjoin, .hide = false,
-  .blurb = "merge path files (.ctp)",
+  .blurb = "merge link files (.ctp)",
   .usage = pjoin_usage
 },
 {
@@ -249,6 +249,33 @@ static const CtxCmd* ctx_get_command(const char* cmd)
   return NULL;
 }
 
+// remove --quiet and -q flags
+// ['--quiet','-qf','-q','-aq'] -> ['-f','-a']
+// returns true iff any quiet flags were found
+static bool remove_quiet_flags(int *argcp, char **argv)
+{
+  bool qfound = false;
+  int i, j, argc = *argcp;
+  char *p, *q;
+  for(i = j = 1; i < argc; i++) {
+    if(strcmp(argv[i],"--quiet") == 0 || strcmp(argv[i],"-q") == 0) qfound = true;
+    else {
+      // Remove q from short option
+      if(argv[i][0] == '-' && argv[i][1] != '-') {
+        for(p = q = argv[i]+1; *p; p++) {
+          if(*p == 'q') qfound = true;
+          else *q++ = *p;
+        }
+        *q = '\0';
+      }
+      argv[j++] = argv[i];
+    }
+  }
+
+  *argcp = j;
+  return qfound;
+}
+
 int main(int argc, char **argv)
 {
   time_t start, end;
@@ -269,17 +296,7 @@ int main(int argc, char **argv)
   if(argc == 2) cmd_print_usage(NULL);
 
   // Look for -q, --quiet argument, if given silence output
-  int argi = 1;
-  while(argi < argc && !(!strcmp(argv[argi],"-q") || !strcmp(argv[argi],"--quiet")))
-    argi++;
-
-  if(argi < argc) {
-    // Found -q, --quiet argument
-    ctx_msg_out = NULL;
-    // Remove argument
-    for(--argc; argi < argc; argi++)
-      argv[argi] = argv[argi+1];
-  }
+  if(remove_quiet_flags(&argc, argv)) { ctx_msg_out = NULL; }
 
   // Print status header
   cmd_print_status_header();

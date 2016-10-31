@@ -245,6 +245,13 @@ int cleaning_pick_kmer_threshold(const uint64_t *kmer_covg, size_t arrlen,
 
 typedef struct
 {
+  uint64_t num_tips, num_tip_kmers;
+  uint64_t num_low_covg_unitigs, num_low_covg_unitig_kmers;
+  uint64_t num_tip_and_low_unitigs, num_tip_and_low_unitig_kmers;
+} UnitigCleanerStats;
+
+typedef struct
+{
   const size_t nthreads, covg_threshold, min_keep_tip;
   CovgBuffer *cbufs;
   uint64_t *kmer_covgs_init, *kmer_covgs_clean;
@@ -252,22 +259,31 @@ typedef struct
   uint64_t *len_hist_init, *len_hist_clean;
   const size_t covg_arrsize, len_arrsize;
   uint8_t *keep_flags;
-  uint64_t num_tips,      num_low_covg_snodes,      num_tip_and_low_snodes;
-  uint64_t num_tip_kmers, num_low_covg_snode_kmers, num_tip_and_low_snode_kmers;
+  UnitigCleanerStats *stats; // array, one per thread
   const dBGraph *db_graph;
 } UnitigCleaner;
+
+static void unitig_cleaner_stats_merge(UnitigCleanerStats *dst,
+                                       const UnitigCleanerStats *src)
+{
+  dst->num_tips += src->num_tips;
+  dst->num_tip_kmers += src->num_tip_kmers;
+  dst->num_low_covg_unitigs += src->num_low_covg_unitigs;
+  dst->num_low_covg_unitig_kmers += src->num_low_covg_unitig_kmers;
+  dst->num_tip_and_low_unitigs += src->num_tip_and_low_unitigs;
+  dst->num_tip_and_low_unitig_kmers += src->num_tip_and_low_unitig_kmers;
+}
 
 // Get coverages from nodes in nbuf, store in cbuf
 static inline void fetch_coverages(dBNodeBuffer nbuf, CovgBuffer *cbuf,
                                    const dBGraph *db_graph)
 {
-  ctx_assert(db_graph->num_of_cols == 1);
   size_t i;
   covg_buf_reset(cbuf);
   covg_buf_capacity(cbuf, nbuf.len);
   cbuf->len = nbuf.len;
   for(i = 0; i < nbuf.len; i++)
-    cbuf->b[i] = db_graph->col_covgs[nbuf.b[i].key];
+    cbuf->b[i] = db_node_sum_covg(db_graph, nbuf.b[i].key);
 }
 
 static inline bool nodes_are_tip(dBNodeBuffer nbuf, const dBGraph *db_graph)
@@ -308,6 +324,8 @@ static void unitig_cleaner_alloc(UnitigCleaner *cl, size_t nthreads,
   len_hist_init        = ctx_calloc(DUMP_LEN_ARRSIZE,  sizeof(uint64_t));
   len_hist_clean     = ctx_calloc(DUMP_LEN_ARRSIZE,  sizeof(uint64_t));
 
+  UnitigCleanerStats *stats = ctx_calloc(nthreads, sizeof(UnitigCleanerStats));
+
   UnitigCleaner tmp = {.nthreads = nthreads,
                        .covg_threshold = covg_threshold,
                        .min_keep_tip = min_keep_tip,
@@ -321,12 +339,7 @@ static void unitig_cleaner_alloc(UnitigCleaner *cl, size_t nthreads,
                        .len_hist_clean  = len_hist_clean,
                        .len_arrsize     = DUMP_LEN_ARRSIZE,
                        .keep_flags = keep_flags,
-                       .num_tips = 0,
-                       .num_low_covg_snodes = 0,
-                       .num_tip_and_low_snodes = 0,
-                       .num_tip_kmers = 0,
-                       .num_low_covg_snode_kmers = 0,
-                       .num_tip_and_low_snode_kmers = 0,
+                       .stats = stats,
                        .db_graph = db_graph};
 
   memcpy(cl, &tmp, sizeof(UnitigCleaner));
@@ -344,6 +357,7 @@ static void unitig_cleaner_dealloc(UnitigCleaner *cl)
   ctx_free(cl->unitig_covg_clean);
   ctx_free(cl->len_hist_init);
   ctx_free(cl->len_hist_clean);
+  ctx_free(cl->stats);
   memset(cl, 0, sizeof(UnitigCleaner));
 }
 
@@ -495,8 +509,10 @@ int cleaning_get_threshold(size_t num_threads,
 static inline void unitig_mark(dBNodeBuffer nbuf, size_t threadid, void *arg)
 {
   UnitigCleaner *cl = (UnitigCleaner*)arg;
-  bool low_covg_snode = false, removable_tip = false;
+  bool low_covg_unitig = false, removable_tip = false;
   size_t i;
+
+  UnitigCleanerStats *stats = &cl->stats[threadid];
 
   CovgBuffer *cbuf = &cl->cbufs[threadid];
   fetch_coverages(nbuf, cbuf, cl->db_graph);
@@ -509,20 +525,20 @@ static inline void unitig_mark(dBNodeBuffer nbuf, size_t threadid, void *arg)
   // Median coverage
   uint32_t median_covg = gca_median_uint32(cbuf->b, cbuf->len);
 
-  low_covg_snode = (median_covg < cl->covg_threshold);
+  low_covg_unitig = (median_covg < cl->covg_threshold);
 
   // Remove tips
   removable_tip = nodes_are_removable_tip(nbuf, cl->min_keep_tip, cl->db_graph);
 
-  if(low_covg_snode && removable_tip) {
-    __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_and_low_snodes, 1);
-    __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_and_low_snode_kmers, nbuf.len);
-  } else if(low_covg_snode) {
-    __sync_fetch_and_add((volatile uint64_t *)&cl->num_low_covg_snodes, 1);
-    __sync_fetch_and_add((volatile uint64_t *)&cl->num_low_covg_snode_kmers, nbuf.len);
+  if(low_covg_unitig && removable_tip) {
+    stats->num_tip_and_low_unitigs++;
+    stats->num_tip_and_low_unitig_kmers += nbuf.len;
+  } else if(low_covg_unitig) {
+    stats->num_low_covg_unitigs++;
+    stats->num_low_covg_unitig_kmers += nbuf.len;
   } else if(removable_tip) {
-    __sync_fetch_and_add((volatile uint64_t *)&cl->num_tips, 1);
-    __sync_fetch_and_add((volatile uint64_t *)&cl->num_tip_kmers, nbuf.len);
+    stats->num_tips++;
+    stats->num_tip_kmers += nbuf.len;
   } else {
     // Keeping unitig
     for(i = 0; i < nbuf.len; i ++)
@@ -557,12 +573,11 @@ void clean_graph(size_t num_threads,
                  const char *covgs_csv_path, const char *lens_csv_path,
                  uint8_t *visited, uint8_t *keep, dBGraph *db_graph)
 {
-  ctx_assert(db_graph->num_of_cols == 1);
   ctx_assert(db_graph->num_edge_cols > 0);
 
-  size_t init_nkmers = db_graph->ht.num_kmers;
+  size_t i, init_nkmers = hash_table_nkmers(&db_graph->ht);
 
-  if(db_graph->ht.num_kmers == 0) return;
+  if(init_nkmers == 0) return;
   if(covg_threshold == 0 && min_keep_tip == 0) {
     warn("[cleaning] No cleaning specified");
     return;
@@ -586,24 +601,28 @@ void clean_graph(size_t num_threads,
 
   // Print numbers of kmers that are being removed
 
-  char num_snodes_str[50], num_tips_str[50], num_tip_snodes_str[50];
-  char num_snode_kmers_str[50], num_tip_kmers_str[50], num_tip_snode_kmers_str[50];
-  ulong_to_str(cl.num_low_covg_snodes, num_snodes_str);
-  ulong_to_str(cl.num_tips, num_tips_str);
-  ulong_to_str(cl.num_tip_and_low_snodes, num_tip_snodes_str);
-  ulong_to_str(cl.num_low_covg_snode_kmers, num_snode_kmers_str);
-  ulong_to_str(cl.num_tip_kmers, num_tip_kmers_str);
-  ulong_to_str(cl.num_tip_and_low_snode_kmers, num_tip_snode_kmers_str);
+  for(i = 1; i < num_threads; i++)
+    unitig_cleaner_stats_merge(&cl.stats[0], &cl.stats[i]);
+  UnitigCleanerStats *stats = &cl.stats[0];
+
+  char num_unitigs_str[50], num_tips_str[50], num_tip_unitigs_str[50];
+  char num_unitig_kmers_str[50], num_tip_kmers_str[50], num_tip_unitig_kmers_str[50];
+  ulong_to_str(stats->num_low_covg_unitigs, num_unitigs_str);
+  ulong_to_str(stats->num_tips, num_tips_str);
+  ulong_to_str(stats->num_tip_and_low_unitigs, num_tip_unitigs_str);
+  ulong_to_str(stats->num_low_covg_unitig_kmers, num_unitig_kmers_str);
+  ulong_to_str(stats->num_tip_kmers, num_tip_kmers_str);
+  ulong_to_str(stats->num_tip_and_low_unitig_kmers, num_tip_unitig_kmers_str);
 
   status("[cleaning] Removing %s low coverage unitigs [%s kmer%s], "
          "%s unitig tips [%s kmer%s] "
          "and %s of both [%s kmer%s]",
-         num_snodes_str,
-         num_snode_kmers_str, util_plural_str(cl.num_low_covg_snode_kmers),
+         num_unitigs_str,
+         num_unitig_kmers_str, util_plural_str(stats->num_low_covg_unitig_kmers),
          num_tips_str,
-         num_tip_kmers_str, util_plural_str(cl.num_tip_kmers),
-         num_tip_snodes_str,
-         num_tip_snode_kmers_str, util_plural_str(cl.num_tip_and_low_snode_kmers));
+         num_tip_kmers_str, util_plural_str(stats->num_tip_kmers),
+         num_tip_unitigs_str,
+         num_tip_unitig_kmers_str, util_plural_str(stats->num_tip_and_low_unitig_kmers));
 
   // Remove nodes not marked to keep
   prune_nodes_lacking_flag(num_threads, keep, db_graph);
@@ -614,7 +633,7 @@ void clean_graph(size_t num_threads,
 
   // Print status update
   char remain_nkmers_str[100], removed_nkmers_str[100];
-  size_t remain_nkmers = db_graph->ht.num_kmers;
+  size_t remain_nkmers = hash_table_nkmers(&db_graph->ht);
   size_t removed_nkmers = init_nkmers - remain_nkmers;
   ulong_to_str(remain_nkmers, remain_nkmers_str);
   ulong_to_str(removed_nkmers, removed_nkmers_str);

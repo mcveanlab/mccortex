@@ -191,7 +191,7 @@ static inline size_t pickup_paths(GraphWalker *wlk, dBNode node,
 
   #ifdef DEBUG_WALKER
     char bkey_str[MAX_KMER_SIZE+1], node_str[MAX_KMER_SIZE+1];
-    BinaryKmer node_bkey = db_node_get_bkmer(wlk->db_graph, node.key);
+    BinaryKmer node_bkey = db_node_get_bkey(wlk->db_graph, node.key);
     binary_kmer_to_str(wlk->bkey, wlk->db_graph->kmer_size, bkey_str);
     binary_kmer_to_str(node_bkey, wlk->db_graph->kmer_size, node_str);
     status("  pickup_paths(): %s:%i node:%s:%i picked up %zu %s paths cntr_filter_nuc0:%i",
@@ -243,7 +243,7 @@ void graph_walker_start(GraphWalker *wlk, dBNode node)
   wlk->last_step.idx = -1;
 
   // Get binary kmer
-  wlk->bkey = db_node_get_bkmer(wlk->db_graph, node.key);
+  wlk->bkey = db_node_get_bkey(wlk->db_graph, node.key);
 
   #ifdef DEBUG_WALKER
     char kmer_str[MAX_KMER_SIZE+1];
@@ -548,7 +548,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
               (int)wlk->last_step.status, (int)is_fork);
 
   // Update GraphWalker position
-  wlk->bkey = db_node_get_bkmer(db_graph, node.key);
+  wlk->bkey = db_node_get_bkey(db_graph, node.key);
   wlk->node = node;
 
   if(is_fork)
@@ -633,7 +633,7 @@ static void _graph_walker_force_jump(GraphWalker *wlk,
  * (can actually be any node up until the end of the current unitig)
  * @param num_nodes is number of nodes we have moved forward
  */
-void graph_walker_jump_along_snode(GraphWalker *wlk, dBNode node, size_t num_nodes)
+void graph_walker_jump_along_unitig(GraphWalker *wlk, dBNode node, size_t num_nodes)
 {
   ctx_assert(num_nodes > 0);
 
@@ -784,7 +784,7 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
     bkmer0 = binary_kmer_left_shift_one_base(bkmer0, wlk->db_graph->kmer_size);
     binary_kmer_set_last_nuc(&bkmer1, 0);
 
-    if(!binary_kmers_are_equal(bkmer0, bkmer1))
+    if(!binary_kmer_eq(bkmer0, bkmer1))
     {
       char bstr0[MAX_KMER_SIZE+1], bstr1[MAX_KMER_SIZE+1];
       binary_kmer_to_str(bkmer0, wlk->db_graph->kmer_size, bstr0);
@@ -793,7 +793,7 @@ bool graph_walker_agrees_contig(GraphWalker *wlk,
       printf("wlk: %s contig: %s num_nodes %zu\n", bstr0, bstr1, num_nodes);
     }
 
-    ctx_check(binary_kmers_are_equal(bkmer0, bkmer1));
+    ctx_check(binary_kmer_eq(bkmer0, bkmer1));
   #endif
 
   dBNode nodes[4];

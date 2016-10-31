@@ -45,16 +45,16 @@ static void _call_bubble(BubbleCaller *caller,
 
   find_bubbles(caller, node5p);
 
-  GCacheUnitig *snode3p;
+  GCacheUnitig *unitig3p;
   Orientation snorient3p;
   GCacheStepPtrBuf *stepbuf;
 
   // Get 3p flank and orientation
-  snode3p = graph_cache_find_unitig(&caller->cache, node3p);
-  TASSERT(snode3p != NULL);
-  snorient3p = gc_unitig_get_orient(&caller->cache, snode3p, node3p);
+  unitig3p = graph_cache_find_unitig(&caller->cache, node3p);
+  TASSERT(unitig3p != NULL);
+  snorient3p = gc_unitig_get_orient(&caller->cache, unitig3p, node3p);
 
-  find_bubbles_ending_with(caller, snode3p);
+  find_bubbles_ending_with(caller, unitig3p);
 
   stepbuf = (snorient3p == FORWARD ? &caller->spp_forward : &caller->spp_reverse);
 
