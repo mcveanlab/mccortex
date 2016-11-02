@@ -8,14 +8,14 @@ use List::Util qw(sum min max);
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
-use CortexScripts;
+use McCortexScripts;
 
 sub print_usage
 {
   if(@_ > 0) { print STDERR map {"Error: $_\n"} @_; }
   
   print STDERR "" .
-"Usage: ./contig_stats.pl [in.txt]
+"Usage: $0 [in.txt]
   Convert ctx-contig output to csv, print to STDOUT\n";
 
   exit(-1);

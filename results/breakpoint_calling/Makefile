@@ -11,7 +11,7 @@ READSIM=$(CTXDIR)/libs/readsim/readsim
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 SIMBRK=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_breakpoints.pl
 BLOCKS2BRK=$(CTXDIR)/libs/bioinf-perl/sim_mutations/block_to_brkpnts.pl
-CHKBRK=$(CTXDIR)/scripts/check-breakpoints.pl
+CHKBRK=$(CTXDIR)/scripts/perl/check-breakpoints.pl
 MKCIRCOS=$(CTXDIR)/scripts/make-circos.pl
 CIRCOS=circos
 

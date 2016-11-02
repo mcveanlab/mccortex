@@ -8,7 +8,7 @@ use List::Util qw(first min max sum shuffle);
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
-use lib $FindBin::Bin . '/../';
+use lib $FindBin::Bin . '/../perl/';
 
 use LineReader;
 
@@ -17,7 +17,7 @@ sub print_usage
   for my $err (@_) { print STDERR "Error: $err\n"; }
   
   print STDERR "" .
-"Usage: ./$0 <a.vcf.gz> <b.vcf.gz>\n" .
+"Usage: $0 <a.vcf.gz> <b.vcf.gz>\n" .
 "  Generate table of GT concordance\n";
 
   exit(-1);

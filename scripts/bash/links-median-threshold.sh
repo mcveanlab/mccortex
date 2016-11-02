@@ -3,8 +3,8 @@
 set -eou pipefail
 
 if [ $# -ne 3 ]; then
-  echo "usage: $0 <fdr> <k> <tree.csv>" &&
-  echo "  Pick threshold for cleaning links" && false
+  >&2 echo "usage: $0 <fdr> <k> <tree.csv>" &&
+  >&2 echo "  Pick threshold for cleaning links" && false
 fi
 
 fdr_limit=$1
@@ -13,7 +13,7 @@ tree_csv=$3
 
 maxk=$[ ( ($k + 31) / 32 ) * 32 - 1 ]
 DIR=$( cd $( dirname ${BASH_SOURCE[0]} ) && pwd )
-CTX="$DIR/../bin/ctx$maxk"
+CTX="$DIR/../../bin/mccortex $k"
 
 thresh=$($CTX linkthresh -q --zero $fdr_limit $[$k+2] $tree_csv;
          $CTX linkthresh -q --zero $fdr_limit $[$k+3] $tree_csv;

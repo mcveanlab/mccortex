@@ -3,9 +3,10 @@
 # Exit immediately if a command exits with a non-zero status.
 set -euo pipefail
 
+cmd=$0
 if [[ $# -ne 1 && $# -ne 2 ]];
 then
-  echo "usage ./cortex_to_ray.sh <input.ctx[:colour]>"
+  echo "usage $cmd <input.ctx[:colour]>"
   exit -1;
 fi
 

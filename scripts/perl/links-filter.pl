@@ -8,10 +8,10 @@ use File::Basename;
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
-use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
+use lib $FindBin::Bin . '/../../libs/bioinf-perl/lib';
 
-use CortexScripts;
-use CortexLinks;
+use McCortexScripts;
+use McCortexLinks;
 use FASTNFile;
 use GeneticsModule;
 
@@ -20,7 +20,8 @@ sub print_usage
   for my $err (@_) { print STDERR "Error: $err\n"; }
 
   print STDERR "" .
-"Usage: ./cortex_graph_links.pl [--print-header] <in.ctp> <kmers.fa>\n";
+"Usage: $0 [--print-header] <in.ctp> <kmers.fa>
+  Pull out specific links that start at given kmers, into new links file\n";
 
   exit(-1);
 }
@@ -41,7 +42,7 @@ my $kmer_fh = open_file($kmer_path);
 my $kmer_file = new FASTNFile($kmer_fh,$kmer_path);
 
 my $ctp_fh = open_file($ctp_path);
-my $ctp_file = new CortexLinks($ctp_fh,$ctp_path);
+my $ctp_file = new McCortexLinks($ctp_fh,$ctp_path);
 
 my ($title,$seq);
 my @tgt_seqs  = (); # array of sequences requested

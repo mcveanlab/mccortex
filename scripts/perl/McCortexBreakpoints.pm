@@ -1,10 +1,10 @@
-package CortexBreakpoints;
+package McCortexBreakpoints;
 
 use strict;
 use warnings;
 use Carp;
 
-use CortexScripts;
+use McCortexScripts;
 
 sub new
 {

@@ -2,10 +2,10 @@ SHELL:=/bin/bash -euo pipefail
 
 K=9
 CTXDIR=../../..
-MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
-MKDOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
-PLOTCOVG=$(CTXDIR)/scripts/plot-covg-hist.R
-PLOTLENS=$(CTXDIR)/scripts/plot-length-hist.R
+MCCORTEX=$(CTXDIR)/bin/mccortex $(K)
+MKDOT=$(CTXDIR)/scripts/perl/mccortex-graph-to-graphviz.pl
+PLOTCOVG=$(CTXDIR)/scripts/R/plot-covg-hist.R
+PLOTLENS=$(CTXDIR)/scripts/R/plot-length-hist.R
 
 SEQ=seq.fa
 GRAPHS=seq.k$(K).raw.ctx seq.k$(K).clean.ctx

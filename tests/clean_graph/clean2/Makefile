@@ -2,8 +2,8 @@ SHELL:=/bin/bash -euo pipefail
 
 K=17
 CTXDIR=../../..
-MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
-PLOTCTX=$(CTXDIR)/scripts/cortex_to_graphviz.pl
+MCCORTEX=$(CTXDIR)/bin/mccortex $(K)
+CTX2DOT=$(CTXDIR)/scripts/perl/mccortex-graph-to-graphviz.pl
 
 GRAPHS=seq.k$(K).raw.ctx seq.k$(K).clean.ctx
 DOTS=$(GRAPHS:.ctx=.dot) $(GRAPHS:.ctx=.unitigs.dot)
@@ -30,10 +30,10 @@ seq.k$(K).clean.ctx: seq.k$(K).raw.ctx
 
 %.unitigs.dot: %.ctx
 	$(MCCORTEX) unitigs -q -m 1M --dot $< > $@
-	# $(PLOTCTX) --simplify $< > $@
+	# $(CTX2DOT) --simplify $< > $@
 
 %.dot: %.ctx
-	$(PLOTCTX) $< > $@
+	$(CTX2DOT) $< > $@
 
 %.pdf: %.dot
 	dot -Tpdf $< > $@

@@ -3,14 +3,14 @@
 #
 # Stand alone script print maximal substrings in O(N^3) time
 # An O(N^2) time dynamic programming solution written in C can be found in:
-#   libs/maximal_substrs
+#   maxsubstrs.c
 #
 
 use strict;
 use warnings;
 
 if(@ARGV != 1) {
-  print STDERR "usage ./find_maximal_substrings.pl <file>\n";
+  print STDERR "usage $0 <file>\n";
   print STDERR "  Find all maximal substrings in O(n^3) time and O(n^2) space\n";
   exit(-1);
 }

@@ -7,7 +7,7 @@ use List::Util qw(min);
 sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
-  print STDERR "Usage: ./clean_bubbles.pl <kmer_size> <in.bubbles>\n";
+  print STDERR "Usage: $0 <kmer_size> <in.bubbles>\n";
   print STDERR "  Remove bubbles lacking valid 3p flank. Prints to STDOUT\n";
   exit(-1);
 }
