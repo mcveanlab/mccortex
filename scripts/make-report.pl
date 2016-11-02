@@ -10,9 +10,9 @@ use File::Basename; # dirname()
 
 # Use current directory to find modules
 use FindBin;
-use lib $FindBin::Bin;
+use lib $FindBin::Bin."/perl/";
 
-use CortexScripts; # mccortex_maxk()
+use McCortexScripts; # mccortex_maxk()
 
 # TODO:
 # [ ] Get raw/clean number of kmers from log files

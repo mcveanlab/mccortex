@@ -10,9 +10,9 @@ use JSON;
 
 # Use current directory to find modules
 use FindBin;
-use lib $FindBin::Bin;
+use lib $FindBin::Bin."/perl/";
 
-use CortexBreakpoints;
+use McCortexBreakpoints;
 
 sub print_usage
 {

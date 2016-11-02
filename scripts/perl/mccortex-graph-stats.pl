@@ -10,9 +10,9 @@ use List::Util qw(sum min max);
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
-use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
+use lib $FindBin::Bin . '/../../libs/bioinf-perl/lib';
 
-use CortexScripts;
+use McCortexScripts;
 use UsefulModule; # num2str
 
 sub print_usage
@@ -20,10 +20,17 @@ sub print_usage
   if(@_ > 0) { print STDERR map {"Error: $_\n"} @_; }
   
   print STDERR "" .
-"Usage: ./cortex_stats.pl [--covg <maxcovg>] <in.ctx>
+"Usage: $0 [--covg <maxcovg>] <in.ctx>
   Prints cortex graph stats\n";
 
   exit(-1);
+}
+
+my $mccortex = dirname(__FILE__)."/../../bin/mccortex";
+my $graphk = dirname(__FILE__)."/mccortex-graph-kmer-size.pl";
+
+if(!(-x $mccortex)) {
+  die("Did you compile McCortex with `make`?");
 }
 
 my $maxcovg = 10;
@@ -38,16 +45,10 @@ my $file = shift;
 
 my ($path) = ($file =~ /^([^:]+):?/);
 if(!(-r $path)) { print_usage("Cannot read file: $path [$file]\n"); }
+my $kmer = `$graphk $path` or die("Cannot get kmer size: $file");
+chomp($kmer);
 
-my $cmd = dirname(__FILE__)."/../bin/mccortex31";
-
-if(!(-e $cmd)) {
-  print_usage("Executable bin/mccortex31 doesn't exist -- did you compile?");
-} elsif(!(-x $cmd)) {
-  print_usage("bin/mccortex31 doesn't appear to be executable");
-}
-
-my $cmdline = "$cmd view --kmers $file";
+my $cmdline = "$mccortex $kmer view -q --kmers $file";
 my ($pid, $in, $out);
 
 my ($num_nodes) = (0);

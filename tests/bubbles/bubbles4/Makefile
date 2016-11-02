@@ -14,8 +14,8 @@ SHELL=/bin/bash -euo pipefail
 
 K=11
 CTXDIR=../../..
-MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
-CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
+MCCORTEX=$(CTXDIR)/bin/mccortex $(K)
+CTX2DOT=$(CTXDIR)/scripts/perl/mccortex-graph-to-graphviz.pl
 CTXFLANKS=$(CTXDIR)/scripts/cortex_print_flanks.sh
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
 VCFRENAME=$(CTXDIR)/libs/biogrok/vcf-rename

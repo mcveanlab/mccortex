@@ -1,12 +1,13 @@
 SHELL:=/bin/bash -euo pipefail
 
+K=15
 CTXDIR=../..
-MCCORTEX=$(CTXDIR)/bin/mccortex31
-CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
+MCCORTEX=$(CTXDIR)/bin/mccortex $(K)
+CTX2DOT=$(CTXDIR)/scripts/perl/mccortex-graph-to-graphviz.pl
 
-all: seq.k15.ctx seq.k15.unitigs.dot seq.k15.kmers.dot
+all: seq.k$(K).ctx seq.k$(K).unitigs.dot seq.k$(K).kmers.dot
 
-plots: seq.k15.unitigs.pdf seq.k15.kmers.pdf
+plots: seq.k$(K).unitigs.pdf seq.k$(K).kmers.pdf
 
 seq.fa:
 	echo TACATTCCCCCATAGTCGTAGGCGTTAAATACA     > seq.fa
@@ -15,21 +16,21 @@ seq.fa:
 	echo ATATATATATATATATATATATATATATATATATAT >> seq.fa
 	echo ACTTCTTCGAAAAAAAAAAAAAAATACTGGCCCTAACTTCTTCGAAAAAA >> seq.fa
 
-seq.k15.ctx: seq.fa
-	$(MCCORTEX) build -q -k 15 --sample MasterSeq --seq seq.fa seq.k15.ctx
+seq.k$(K).ctx: seq.fa
+	$(MCCORTEX) build -q -k $(K) --sample MasterSeq --seq seq.fa seq.k$(K).ctx
 
-seq.k15.unitigs.dot: seq.k15.ctx
+seq.k$(K).unitigs.dot: seq.k$(K).ctx
 	$(MCCORTEX) unitigs -q --dot $< > $@
 
-seq.k15.kmers.dot: seq.k15.ctx
+seq.k$(K).kmers.dot: seq.k$(K).ctx
 	$(CTX2DOT) $< > $@
 
 %.pdf: %.dot
 	cat $< | dot -Tpdf > $@
 
 clean:
-	rm -rf seq.fa seq.k15.ctx
-	rm -rf seq.k15.unitigs.dot seq.k15.kmers.dot
-	rm -rf seq.k15.unitigs.pdf seq.k15.kmers.pdf
+	rm -rf seq.fa seq.k$(K).ctx
+	rm -rf seq.k$(K).unitigs.dot seq.k$(K).kmers.dot
+	rm -rf seq.k$(K).unitigs.pdf seq.k$(K).kmers.pdf
 
 .PHONY: all clean plots

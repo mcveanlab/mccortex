@@ -5,12 +5,12 @@ use warnings;
 
 # Use current directory to find modules
 use FindBin;
-use lib $FindBin::Bin;
+use lib $FindBin::Bin . "/perl";
 use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
 
 use List::Util qw(max min sum);
 use POSIX qw/strftime/;
-use CortexScripts;
+use McCortexScripts; # open_file
 use UsefulModule; # str2num
 
 #
@@ -36,7 +36,7 @@ sub print_usage
     -P,--ploidy <P>               Ploidy: e.g. '2', '1' or '-P .:.:2 -P .:Y:1 -P john:X:1'
 
   Example:
-    ./make-pipeline.pl -r ref.fa 31,61 my_proj samples.txt > job.mk
+    $0 -r ref.fa 31,61 my_proj samples.txt > job.mk
     make -f job.mk CTXDIR=~/mccortex MEM=2G bub-vcf
 
   To list all the commands without running:

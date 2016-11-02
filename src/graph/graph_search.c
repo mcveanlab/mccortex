@@ -37,7 +37,8 @@ GraphFileSearch *graph_search_new(GraphFileReader *file)
          " building...", gs->ncols, gs->nblocks, gs->blocksize, gs->nkmers);
   graph_file_set_buffered(file, 0); // Turn OFF buffered input
   for(i = 0; i < gs->nblocks; i++) {
-    graph_file_fseek(file, graph_file_offset(file, i*gs->blocksize), SEEK_SET);
+    if(graph_file_fseek(file, graph_file_offset(file, i*gs->blocksize), SEEK_SET) != 0)
+      die("fseek failed: %s", strerror(errno));
     if(graph_file_fread(file, &gs->index[i], sizeof(BinaryKmer)) != sizeof(BinaryKmer))
       die("Cannot index graph: %s", file_filter_path(&gs->file->fltr));
   }
@@ -83,7 +84,8 @@ static inline void* search_file_sec(GraphFileSearch *gs, BinaryKmer bkey,
   // Binary search
   while(start + MAX_LIN_SEARCH < end) {
     mid = (start+end) / 2;
-    graph_file_fseek(gs->file, hdrsize+gs->entrysize*mid, SEEK_SET);
+    if(graph_file_fseek(gs->file, hdrsize+gs->entrysize*mid, SEEK_SET) != 0)
+      die("fseek failed: %s", strerror(errno));
     if(graph_file_fread(gs->file, gs->block, gs->entrysize) != gs->entrysize)
       die("Cannot search graph from disk: %s", file_filter_path(&gs->file->fltr));
     memcpy(bmid.b, gs->block, sizeof(BinaryKmer)); // copy binary kmer
@@ -93,7 +95,8 @@ static inline void* search_file_sec(GraphFileSearch *gs, BinaryKmer bkey,
   }
   // Linear search
   size_t blockmem = gs->entrysize*(end-start);
-  graph_file_fseek(gs->file, hdrsize+gs->entrysize*start, SEEK_SET);
+  if(graph_file_fseek(gs->file, hdrsize+gs->entrysize*start, SEEK_SET) != 0)
+    die("fseek failed: %s", strerror(errno));
   if(graph_file_fread(gs->file, gs->block, blockmem) != blockmem)
     die("Cannot search graph from disk: %s", file_filter_path(&gs->file->fltr));
   char *p, *endp = (char*)gs->block + blockmem;
@@ -149,7 +152,8 @@ bool graph_search_find(GraphFileSearch *gs, BinaryKmer bkey,
 void graph_search_fetch(GraphFileSearch *gs, size_t idx, BinaryKmer *bkey,
                         Covg *covgs, Edges *edges)
 {
-  graph_file_fseek(gs->file, gs->file->hdr_size+gs->entrysize*idx, SEEK_SET);
+  if(graph_file_fseek(gs->file, gs->file->hdr_size+gs->entrysize*idx, SEEK_SET) != 0)
+    die("fseek failed: %s", strerror(errno));
   // read one entry
   if(graph_file_fread(gs->file, gs->block, gs->entrysize) != gs->entrysize)
     die("Cannot search graph from disk: %s", file_filter_path(&gs->file->fltr));

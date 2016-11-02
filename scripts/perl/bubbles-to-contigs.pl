@@ -9,24 +9,27 @@ use File::Basename;
 use FindBin;
 use lib $FindBin::Bin;
 
-use CortexBubbles;
+use McCortexBubbles;
 
 sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
-  
+
   print STDERR "" .
-"Usage: $0 <bub.gz>\n";
+"Usage: $0 <bub.txt.gz>\n" .
+"  Print a contig for each bubble branch. Prints to STDOUT.\n" .
+"  Contigs are named: >BUBBLENAME.branchB\n" .
+"  where B is the branch number\n";
 
   exit(-1);
 }
 
-if(@ARGV > 1) { print_usage(); }
-my ($file) = (@ARGV, "-");
+if(@ARGV != 1) { print_usage(); }
+my ($file) = (@ARGV,"-");
 my $fh;
 open($fh, "gzip -fcd $file |") or die("Cannot read file $file: $!");
 
-my $cb = new CortexBubbles($fh);
+my $cb = new McCortexBubbles($fh);
 my ($seq5p, $seq3p, $branches, $flank5p_nkmers, $flank3p_nkmers, $branchlens, $callid);
 
 while(1)
@@ -35,11 +38,12 @@ while(1)
    $flank5p_nkmers, $flank3p_nkmers, $branchlens, $callid) = $cb->next();
   if(!defined($seq5p)) { last; }
 
-  print "BUBBLE $callid\n";
-  print ">flank5p $flank5p_nkmers nkmers=$flank5p_nkmers\n$seq5p\n";
-  print ">flank3p $flank5p_nkmers nkmers=$flank3p_nkmers\n$seq3p\n";
-  print "". join('', map {">branch$_ nkmers=$branchlens->[$_]\n$branches->[$_]\n"} 0..(@$branches-1));
-  print "\n";
+  my ($len5p,$len3p) = (length($seq5p), length($seq3p));
+
+  for(my $i = 0; $i < @$branches; $i++) {
+    print ">$callid.branch$i:$len5p:$len3p\n";
+    print $seq5p.$branches->[$i].$seq3p."\n";
+  }
 }
 
 close($fh);

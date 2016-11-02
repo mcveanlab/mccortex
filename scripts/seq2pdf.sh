@@ -4,10 +4,12 @@
 set -euo pipefail
 set +o posix
 
+cmd=$0
+
 function usage {
-  echo "usage ./seq2pdf.sh [--simplify|--dot] <kmer> <file1> [...]"
-  echo "  prints pdf to stdout, so please remember to redirect"
-  echo "  e.g. ./seq2pdf.sh 5 <(echo ACAACACGT) <(echo CCACACAA) > out.pdf"
+  >&2 echo "usage $cmd [--simplify|--dot] <kmer> <file1> [...]"
+  >&2 echo "  prints pdf to stdout, so please remember to redirect"
+  >&2 echo "  e.g. $cmd 5 <(echo ACAACACGT) <(echo CCACACAA) > out.pdf"
   exit -1
 }
 
@@ -39,7 +41,7 @@ shift
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 MCCORTEX="$DIR/bin/mccortex"
-CTX2GRAPHVIZ="$DIR/scripts/cortex_to_graphviz.pl"
+CTX2GRAPHVIZ="$DIR/scripts/perl/mccortex-graph-to-graphviz.pl"
 if [[ !(-e $MCCORTEX) || !(-x $MCCORTEX) ]]
 then
   echo "Did you compile McCortex? I cannot run `$MCCORTEX`"

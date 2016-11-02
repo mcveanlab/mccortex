@@ -2,8 +2,8 @@ SHELL:=/bin/bash -euo pipefail
 
 K=9
 CTXDIR=../../..
-MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
-CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
+MCCORTEX=$(CTXDIR)/bin/mccortex $(K)
+CTX2DOT=$(CTXDIR)/scripts/perl/mccortex-graph-to-graphviz.pl
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 
 GRAPHS=$(shell echo genome.k$(K).{ctx,dot})

@@ -26,8 +26,8 @@ SHELL:=/bin/bash -euo pipefail
 K=11
 CTXDIR=../../..
 MCCORTEX=$(CTXDIR)/bin/mccortex31
-CTX2DOT=$(CTXDIR)/scripts/cortex_to_graphviz.pl
-BRKCHCK=$(CTXDIR)/scripts/cortex_brkpnts_check_ref.pl
+CTX2DOT=$(CTXDIR)/scripts/perl/mccortex-graph-to-graphviz.pl
+BRKCHCK=$(CTXDIR)/scripts/perl/breakpoints-check-ref.pl
 VCFSORT=$(CTXDIR)/libs/biogrok/vcf-sort
 VCFRENAME=$(CTXDIR)/libs/biogrok/vcf-rename
 

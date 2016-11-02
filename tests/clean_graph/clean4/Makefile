@@ -11,8 +11,7 @@ SHELL:=/bin/bash -euo pipefail
 
 K=31
 CTXDIR=../../..
-MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
-PLOTCTX=$(CTXDIR)/scripts/cortex_to_graphviz.pl
+MCCORTEX=$(CTXDIR)/bin/mccortex $(K)
 
 SEQ_FILES=sample.1.fa sample.2.fa sample.3.fa
 RAW_GRAPHS=pop2.k$(K).ctx pop3.k$(K).ctx

@@ -1,4 +1,4 @@
-package CortexScripts;
+package McCortexScripts;
 
 use strict;
 use warnings;
