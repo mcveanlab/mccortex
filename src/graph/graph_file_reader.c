@@ -10,7 +10,8 @@ void graph_file_set_buffered(GraphFileReader *file, size_t bufsize)
   if(graph_file_is_buffered(file) == (bufsize>0)) return;
   if(bufsize) strm_buf_alloc(&file->strm, bufsize);
   else {
-    fseek(file->fh, (off_t)file->strm.begin - file->strm.end, SEEK_CUR);
+    if(fseek(file->fh, (off_t)file->strm.begin - file->strm.end, SEEK_CUR) != 0)
+      die("fseek failed: %s", strerror(errno));
     strm_buf_dealloc(&file->strm);
   }
 }
