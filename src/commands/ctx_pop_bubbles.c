@@ -13,7 +13,8 @@
 const char pop_bubbles_usage[] =
 "usage: "CMD" pop [options] <in.ctx> [in2.ctx ...]\n"
 "\n"
-"  Pop bubbles in the graph.\n"
+"  Pop bubbles in the graph. All graphs are loaded and treated as one colour\n"
+"  for bubble popping. Output is a multicolour graph.\n"
 "\n"
 "  -h, --help            This help message\n"
 "  -q, --quiet           Silence status output normally printed to STDERR\n"
