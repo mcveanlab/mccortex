@@ -2,8 +2,8 @@ SHELL:=/bin/bash -euo pipefail
 
 K=31
 CTXDIR=../../..
-MCCORTEX=$(shell echo $(CTXDIR)/bin/mccortex$$[(($(K)+31)/32)*32 - 1])
-CTX2GV=$(CTXDIR)/scripts/cortex_to_graphviz.pl
+MCCORTEX=$(CTXDIR)/bin/mccortex $(K)
+CTX2DOT=$(CTXDIR)/scripts/perl/mccortex-graph-to-graphviz.pl
 
 GRAPHS=ref.k$(K).ctx ref.ctp.gz
 LOGS=$(addsuffix .log,$(GRAPHS))

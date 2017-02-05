@@ -1,10 +1,10 @@
-package CortexBubbles;
+package McCortexBubbles;
 
 use strict;
 use warnings;
 use Carp;
 
-use CortexScripts; # load_json_hdr()
+use McCortexScripts; # load_json_hdr()
 
 sub new
 {

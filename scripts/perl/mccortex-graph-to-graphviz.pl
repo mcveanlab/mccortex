@@ -8,11 +8,11 @@ use File::Basename;
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
-use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
+use lib $FindBin::Bin . '/../../libs/bioinf-perl/lib';
 
-use CortexScripts; # mccortex_maxk
-use CortexGraph;
-use CortexLinks;
+use McCortexScripts; # mccortex_maxk
+use McCortexGraph;
+use McCortexLinks;
 use FASTNFile;
 
 sub print_usage
@@ -23,20 +23,22 @@ sub print_usage
   }
 
   print STDERR "" .
-"Usage: ./cortex_to_graphviz.pl [options] <in.ctx> [...]
+"Usage: $0 [options] <in.ctx> [...]
   Prints graphviz `dot' output.  Not to be used with large graphs!
 
   --points         Don't print kmer values, only points
-  --simplify       Simplify supernodes
+  --simplify       Simplify unitigs
   --kmer <k>       Max kmer size used [default: 31]
   --path <in.ctp>  Load links from file
   --mark <in.fa>   Mark given kmers
 
-  Example: ./cortex_to_graphviz.pl small.ctx > small.dot
+  Example: $0 small.ctx > small.dot
            dot -Tpng small.dot > small.png\n";
 
   exit(-1);
 }
+
+my $mccortex = dirname(__FILE__)."/../../bin/mccortex";
 
 my $use_points = 0;
 my $simplify = 0;
@@ -84,20 +86,15 @@ if(defined($contig_path) && $simplify) {
   print_usage("--mark <in> and --simplify are not supported together currently");
 }
 
+if(!(-x $mccortex)) {
+  die("Did you compile McCortex with `make`?");
+}
+
 if(@ARGV != 1) { print_usage(); }
 my @files = @ARGV;
 
-my $cmd = dirname(__FILE__)."/../bin/mccortex$maxk";
-
-if(!(-e $cmd)) {
-  die("executable bin/mccortex$maxk doesn't exist -- did you compile for MAXK=$maxk?\n");
-}
-elsif(!(-x $cmd)) {
-  die("bin/mccortex$maxk doesn't appear to be executable\n");
-}
-
 # graph file reader command
-my $cmdline = "$cmd view --quiet --kmers @files";
+my $cmdline = "$mccortex $maxk view --quiet --kmers @files";
 my $in;
 open($in, '-|', $cmdline) or die $!;
 
@@ -106,7 +103,7 @@ my %kmerlinks = (); # kmer->path string
 # Read links
 if(defined($ctp_path)) {
   my $ctp_fh = open_file($ctp_path);
-  my $ctp_file = new CortexLinks($ctp_fh, $ctp_path);
+  my $ctp_file = new McCortexLinks($ctp_fh, $ctp_path);
 
   while(1) {
     my ($kmer, @links) = $ctp_file->next();
@@ -144,7 +141,7 @@ print "  node [".($use_points ? "shape=point label=none" : "shape=none")." ".
 
 if($simplify)
 {
-  my $graph = new CortexGraph();
+  my $graph = new McCortexGraph();
   my $num_cols;
 
   # Construct graph
@@ -177,34 +174,34 @@ if($simplify)
 
   # print "kmer size: $kmer_size\n";
 
-  # Simplify graph into supernodes
-  # Hash of edge kmers -> supernodes
+  # Simplify graph into unitigs
+  # Hash of edge kmers -> unitigs
   my %super_graph = ();
-  my @supernodes = ();
+  my @unitigs = ();
 
   for my $key (keys %$graph) {
     if(!defined($graph->{$key}->{'visited'})) {
-      my $contig = $graph->get_supernode($key);
+      my $contig = $graph->get_unitig($key);
       $graph->mark_kmers_visited($contig);
-      my $supernode = {'seq' => $contig};
-      push(@supernodes, $supernode);
+      my $unitig = {'seq' => $contig};
+      push(@unitigs, $unitig);
       my $key0 = kmer_key(substr($contig, 0, $kmer_size));
       my $key1 = kmer_key(substr($contig, -$kmer_size));
-      $super_graph{$key0} = $supernode;
-      $super_graph{$key1} = $supernode;
+      $super_graph{$key0} = $unitig;
+      $super_graph{$key1} = $unitig;
     }
   }
 
   # Print nodes
-  for my $supernode (@supernodes) {
-    print "  $supernode->{'seq'}\n";
+  for my $unitig (@unitigs) {
+    print "  $unitig->{'seq'}\n";
   }
 
   # Print edges
-  for my $supernode (@supernodes)
+  for my $unitig (@unitigs)
   {
-    my $kmer0 = substr($supernode->{'seq'}, 0, $kmer_size);
-    my $kmer1 = substr($supernode->{'seq'}, -$kmer_size);
+    my $kmer0 = substr($unitig->{'seq'}, 0, $kmer_size);
+    my $kmer1 = substr($unitig->{'seq'}, -$kmer_size);
     my ($key0, $key1) = map {kmer_key($_)} ($kmer0, $kmer1);
     my $reverse0 = get_orientation($kmer0, $key0);
     my $reverse1 = get_orientation($kmer1, $key1);
@@ -215,15 +212,15 @@ if($simplify)
     # print "@prev_edges:$kmer0  $kmer1:@next_edges\n";
 
     for my $next (@next_edges) {
-      my $kmer = substr($supernode->{'seq'},-$kmer_size+1).$next;
-      my $next_supernode = $super_graph{kmer_key($kmer)};
-      print_supernode($supernode, $next, $next_supernode, $kmer, 1);
+      my $kmer = substr($unitig->{'seq'},-$kmer_size+1).$next;
+      my $next_unitig = $super_graph{kmer_key($kmer)};
+      print_unitig($unitig, $next, $next_unitig, $kmer, 1);
     }
 
     for my $prev (@prev_edges) {
-      my $kmer = revcmp($prev).substr($supernode->{'seq'},0,$kmer_size-1);
-      my $prev_supernode = $super_graph{kmer_key($kmer)};
-      print_supernode($supernode, $prev, $prev_supernode, $kmer, 0);
+      my $kmer = revcmp($prev).substr($unitig->{'seq'},0,$kmer_size-1);
+      my $prev_unitig = $super_graph{kmer_key($kmer)};
+      print_unitig($unitig, $prev, $prev_unitig, $kmer, 0);
     }
   }
 }
@@ -299,29 +296,29 @@ sub parse_ctx_line
   return ($kmer, \@covgs, \@edges, $num_cols);
 }
 
-sub print_supernode
+sub print_unitig
 {
-  my ($supernode,$rbase,$next_supernode,$kmer0,$going_right) = @_;
+  my ($unitig,$rbase,$next_unitig,$kmer0,$going_right) = @_;
 
   my $kmer_size = length($kmer0);
 
-  my $kmer1a = substr($next_supernode->{'seq'}, 0, $kmer_size);
-  my $kmer1b = substr($next_supernode->{'seq'}, -$kmer_size);
+  my $kmer1a = substr($next_unitig->{'seq'}, 0, $kmer_size);
+  my $kmer1b = substr($next_unitig->{'seq'}, -$kmer_size);
   my ($key0,$key1a,$key1b) = map {kmer_key($_)} ($kmer0, $kmer1a, $kmer1b);
 
   my ($kmer1, $key1);
   if($key0 eq $key1a) { $kmer1 = $kmer1a; $key1 = $key1a; }
   elsif($key0 eq $key1b) { $kmer1 = $kmer1b; $key1 = $key1b; }
-  else { die("Error: Mismatch in supernode edges"); }
+  else { die("Error: Mismatch in unitig edges"); }
 
   my $arrive_left = $kmer0 eq ($going_right ? $kmer1a : revcmp($kmer1a));
 
-  if(($supernode->{'seq'} lt $next_supernode->{'seq'}) ||
-     ($supernode->{'seq'} le $next_supernode->{'seq'} &&
+  if(($unitig->{'seq'} lt $next_unitig->{'seq'}) ||
+     ($unitig->{'seq'} le $next_unitig->{'seq'} &&
       ($arrive_left != $going_right || $arrive_left && $going_right)))
   {
-    my $from = $supernode->{'seq'};
-    my $to = $next_supernode->{'seq'};
+    my $from = $unitig->{'seq'};
+    my $to = $next_unitig->{'seq'};
     print "  $from:" . ($going_right ? 'e' : 'w') . " -> " .
           "$to:"  . ($arrive_left ? 'w' : 'e') . "\n";
   }

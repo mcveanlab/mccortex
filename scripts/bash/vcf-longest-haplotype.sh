@@ -2,8 +2,9 @@
 
 set -euo pipefail
 
+cmd=$0
 if [[ $# -ne 1 ]]; then
-  echo "usage: ./longest-haplotype.sh <in.vcf>"
+  echo "usage: $cmd <in.vcf>"
   exit -1
 fi
 

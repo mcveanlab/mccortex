@@ -125,6 +125,7 @@ static size_t ctx_max_cols(struct MemArgs memargs, uint64_t ctx_max_kmers,
 
   ncols = (memargs.mem_to_use*8 - bits_per_kmer*kmers_in_hash) /
           (per_col_bits*kmers_in_hash);
+  ncols = MAX2(ncols, 1);
 
   return MIN2(ncols, file_ncols);
 }

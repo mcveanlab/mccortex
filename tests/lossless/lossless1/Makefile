@@ -3,8 +3,8 @@ SHELL:=/bin/bash -euo pipefail
 #
 # Isaac Turner 2014-10-08
 #
-# In this test we generate a random 1001 base sequence, add 9bp unique kmers
-# either side and build graph and path files. Then, using k=9, we reassemble
+# In this test we generate a random 10kbp base sequence, add 9bp unique kmers
+# either side and build graph and path files. Then, using k=7, we reassemble
 # contigs from the graph+path, remove duplicates, trim off 9bp added each side
 # and compare to original.
 #

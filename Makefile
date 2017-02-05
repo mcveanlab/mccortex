@@ -248,7 +248,7 @@ test: tests
 # Force version.h to be remade if $(CTX_VERSION) has changed.
 ifndef CTX_VERSION
 ifneq "$(wildcard .git)" ""
-CTX_VERSION := $(shell git describe --always --dirty)
+CTX_VERSION := $(shell git describe --always)
 # CTX_VERSION := $(shell git log --pretty=format:'%h' -n 1 --tags)
 src/global/version.h: $(if $(wildcard src/global/version.h),$(if $(findstring "$(CTX_VERSION)",$(shell cat src/global/version.h)),,force))
 endif
@@ -299,7 +299,7 @@ bin/mccortex$(MAXK): src/main/mccortex.c $(OBJS) $(HDRS) $(REQ) | $(DEPS)
 	$(CC) -o $@ $(CFLAGS) $(CPPFLAGS) $(KMERARGS) -I src/commands/ -I src/tools/ -I src/alignment/ -I src/graph_paths/ -I src/graph/ -I src/paths/ -I src/basic/ -I src/global/ -I src/kmer/ $(INCS) src/main/mccortex.c $(OBJS) $(LINK)
 
 bin/mccortex:
-	cp scripts/mccortex $@
+	cp scripts/build/mccortex $@
 
 tests: bin/tests$(MAXK)
 bin/tests$(MAXK): src/main/tests.c $(TESTS_OBJS) $(TESTS_HDRS) $(OBJS) $(HDRS) $(REQ) | $(DEPS)

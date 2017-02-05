@@ -7,7 +7,7 @@ use warnings;
 use FindBin;
 use lib $FindBin::Bin;
 
-use CortexScripts; # load_json_hdr()
+use McCortexScripts; # load_json_hdr()
 
 sub print_usage
 {

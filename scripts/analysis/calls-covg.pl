@@ -14,7 +14,7 @@ use constant {EDGES_MISSING => 1,
 
 # Use current directory to find modules
 use FindBin;
-use lib $FindBin::Bin;
+use lib $FindBin::Bin . "/../perl/";
 use lib $FindBin::Bin . '/../../libs/bioinf-perl/lib';
 
 use UsefulModule;

@@ -6,16 +6,14 @@ use warnings;
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
-use CortexScripts;
-
-# usage: ./ctx_kmer.pl [-a] <in.ctx>
+use McCortexScripts;
 
 sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
   
   print STDERR "" .
-"Usage: ./ctx_kmer.pl [-a] <in.ctx>
+"Usage: $0 [-a] <in.ctx>
   Print kmer size of a cortex graph file. If -a given, also print whole file.\n";
 
   exit(-1);
@@ -33,7 +31,7 @@ if(@ARGV != 1) { print_usage(); }
 #
 # Pull out the kmer-size of a graph file and print it
 # Then proceed to print the rest of the file
-# Used in cortex_to_graphviz.pl
+# Used in mccortex-graph-kmer-size.pl
 #
 
 # file format:

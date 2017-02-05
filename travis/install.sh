@@ -2,10 +2,10 @@
 
 set -e
 
-# The COVERITY_SCAN_BRANCH environment variable will be set to 1 when the
-# Coverity Scan addon is in operation
 # Only run if we are not doing Coverity Scan analysis
-if [ "${COVERITY_SCAN_BRANCH}" != 1 ]
+# The COVERITY_SCAN_BRANCH environment variable is not set until AFTER install
+# step has run, so we do a check on which git branch we have
+if [ $(git rev-parse --abbrev-ref HEAD) != "coverity_scan" ]
 then
 
   # Set up cpanm, install JSON perl package

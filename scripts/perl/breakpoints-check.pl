@@ -8,18 +8,18 @@ use List::Util qw(first min max sum shuffle);
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
-use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
+use lib $FindBin::Bin . '/../../libs/bioinf-perl/lib';
 
 use GeneticsModule;
 use UsefulModule;
-use CortexBreakpoints;
+use McCortexBreakpoints;
 
 sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
   
   print STDERR "" .
-"Usage: ./check-breakpoints.pl <truth.txt> <breakpoints.txt>\n" .
+"Usage: $0 <truth.txt> <breakpoints.txt>\n" .
 "  Count how many breakpoints were correctly called. \n" .
 "  truth.txt: (1-based)\n" .
 "    <chr0>:<pos0>:<strand0>\t<chr1>:<pos1>:<strand1>\t<seq>\t<chr1>:<pos1>:<strand1>\t<chr0>:<pos0>:<strand0>\t<seq>\n" .
@@ -42,7 +42,7 @@ my $num_with_seq = 0;
 
 my $brkpnt_fh;
 open($brkpnt_fh, $brkpnt_path) or die("Cannot open $brkpnt_path");
-my $brkpnt = new CortexBreakpoints($brkpnt_fh, $brkpnt_path);
+my $brkpnt = new McCortexBreakpoints($brkpnt_fh, $brkpnt_path);
 
 while(my ($seq5p, $seq3p, $gapseq, $hits5p, $hits3p, $cols, $callid) = $brkpnt->next())
 {

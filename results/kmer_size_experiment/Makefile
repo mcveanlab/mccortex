@@ -13,16 +13,23 @@ SHELL=/bin/bash -euo pipefail
 
 CTXDIR=../../
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
+DNADEMUX=$(CTXDIR)/libs/seq_file/bin/dnademux
 BFC=$(CTXDIR)/libs/bfc/bfc
 GENREADS=$(CTXDIR)/scripts/python/generate-reads.py
 COUNT_BAD_EDGES=python $(CTXDIR)/scripts/python/count-bad-edges.py
 TIME=/usr/bin/time -l
 
-REF=$(CTXDIR)/results/data/chr22/chr22_17M_18M.fa
-READS_PERFECT=data/perfect_cov.fa.gz
-READS_STOCH=data/stoch_cov.fa.gz
-READS_STOCHERR=data/stocherr_cov.fa.gz
-READS_CORR=data/stocherr_corr.fa.gz
+# REF=$(CTXDIR)/results/data/chr22/chr22_17M_18M.fa
+REF=$(CTXDIR)/results/data/chr22/chr22_28M_29M.fa
+PERFECT=data/perfect_cov
+STOCH=data/stoch_cov
+STOCHERR=data/stocherr_cov
+CORR=data/stocherr_corr
+
+READS_PERFECT=$(PERFECT).1.fq.gz $(PERFECT).2.fq.gz
+READS_STOCH=$(STOCH).1.fq.gz $(STOCH).2.fq.gz
+READS_STOCHERR=$(STOCHERR).1.fq.gz $(STOCHERR).2.fq.gz
+READS_CORR=$(CORR).1.fq.gz $(CORR).2.fq.gz
 
 MKFILE=runk.mk
 KMERS=21 31 41 51 61 71 81 91 99
@@ -41,43 +48,55 @@ DIRS=data $(NAMES)
 # Keep all files
 .SECONDARY:
 
-PERFECT=$(foreach K,$(KMERS),perfect_k$(K))
-STOCH=$(foreach K,$(KMERS),stoch_k$(K))
-STOCHERR=$(foreach K,$(KMERS),stocherr_k$(K))
-ERRCORR=$(foreach K,$(KMERS),stocherr_corr_k$(K))
+JOBS_PERFECT=$(foreach K,$(KMERS),perfect_k$(K))
+JOBS_STOCH=$(foreach K,$(KMERS),stoch_k$(K))
+JOBS_STOCHERR=$(foreach K,$(KMERS),stocherr_k$(K))
+JOBS_ERRCORR=$(foreach K,$(KMERS),stocherr_corr_k$(K))
 
-# all: $(PLAIN_STATS) $(LINKS_STATS) results/bad.edges.csv
-all: $(PERFECT) $(STOCH) $(STOCHERR) $(ERRCORR) results/latest/bad.edges.csv
+all: $(JOBS_PERFECT) $(JOBS_STOCH) $(JOBS_STOCHERR) $(JOBS_ERRCORR) results/latest/bad.edges.csv
 
 $(REF):
 	cd ../data && ./download.sh
 
-$(READS_PERFECT): $(REF) | $(DIRS)
-	$(DNACAT) -P $(REF) | $(GENREADS) -s $(SEED) -p $(FRAGLEN) -r $(READLEN) | gzip -c > $@
+reads: $(READS_PERFECT) $(READS_STOCH) $(READS_STOCHERR) $(READS_CORR)
 
-$(READS_STOCH): $(REF) | $(DIRS)
-	$(DNACAT) -P $(REF) | $(GENREADS) -s $(SEED) -p $(FRAGLEN) -r $(READLEN) -d $(DEPTH) | gzip -c > $@
+$(PERFECT).2.fq.gz: $(PERFECT).1.fq.gz
+$(PERFECT).1.fq.gz: $(REF) | $(DIRS)
+	$(DNACAT) -P $(REF) | \
+	$(GENREADS) -s $(SEED) -p $(FRAGLEN) -r $(READLEN) | \
+	$(DNADEMUX) -z -Q $(PERFECT).1.fq.gz $(PERFECT).2.fq.gz
 
-$(READS_STOCHERR): $(REF) | $(DIRS)
-	$(DNACAT) -P $(REF) | $(GENREADS) -s $(SEED) -p $(FRAGLEN) -r $(READLEN) -d $(DEPTH) -e $(ERRRATE) | gzip -c > $@
+$(STOCH).2.fq.gz: $(STOCH).1.fq.gz
+$(STOCH).1.fq.gz: $(REF) | $(DIRS)
+	$(DNACAT) -P $(REF) | \
+	$(GENREADS) -s $(SEED) -p $(FRAGLEN) -r $(READLEN) -d $(DEPTH) | \
+	$(DNADEMUX) -z -Q $(STOCH).1.fq.gz $(STOCH).2.fq.gz
 
-$(READS_CORR): $(READS_STOCHERR) | $(DIRS)
-	$(TIME) $(BFC) -s 1m <($(DNACAT) -F $(READS_STOCHERR)) <($(DNACAT) -F $(READS_STOCHERR)) 2> $@.log | gzip -c 1> $@
+$(STOCHERR).2.fq.gz: $(STOCHERR).1.fq.gz
+$(STOCHERR).1.fq.gz: $(REF) | $(DIRS)
+	$(DNACAT) -P $(REF) | \
+	$(GENREADS) -s $(SEED) -p $(FRAGLEN) -r $(READLEN) -d $(DEPTH) -e $(ERRRATE) | \
+	$(DNADEMUX) -z -Q $(STOCHERR).1.fq.gz $(STOCHERR).2.fq.gz
+
+$(CORR).2.fq.gz: $(CORR).1.fq.gz
+$(CORR).1.fq.gz: $(READS_STOCHERR) | $(DIRS)
+	$(TIME) $(BFC) -s 1m <($(DNACAT) -i -F $(READS_STOCHERR)) <($(DNACAT) -i -F $(READS_STOCHERR)) 2> $@.log | \
+	$(DNADEMUX) -z -Q $(CORR).1.fq.gz $(CORR).2.fq.gz
 
 # perfect_cov/k%/stats.plain.txt perfect_cov/k%/stats.links.txt: $(READS_PERFECT)
 perfect_k%: $(READS_PERFECT)
-	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=perfect_cov INPUT=$(READS_PERFECT)
+	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=perfect_cov IN1=$(PERFECT).1.fq.gz IN2=$(PERFECT).2.fq.gz
 
 # stoch_cov/k%/stats.plain.txt stoch_cov/k%/stats.links.txt: $(READS_STOCH)
 stoch_k%: $(READS_STOCH)
-	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=stoch_cov INPUT=$(READS_STOCH)
+	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=stoch_cov IN1=$(STOCH).1.fq.gz IN2=$(STOCH).2.fq.gz
 
 # stocherr_cov/k%/stats.plain.txt stocherr_cov/k%/stats.links.txt: $(READS_STOCHERR)
 stocherr_k%: $(READS_STOCHERR)
-	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=stocherr_cov INPUT=$(READS_STOCHERR) CLEAN=1
+	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=stocherr_cov IN1=$(STOCHERR).1.fq.gz IN2=$(STOCHERR).2.fq.gz CLEAN=1
 
 stocherr_corr_k%: $(READS_CORR)
-	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=stocherr_corr INPUT=$(READS_CORR) CLEAN=1
+	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=stocherr_corr IN1=$(CORR).1.fq.gz IN2=$(CORR).2.fq.gz CLEAN=1
 
 # Find the number of sequencing errors that would add a new edges between two
 # existing kmers

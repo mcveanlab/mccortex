@@ -1,4 +1,4 @@
-package CortexLinks;
+package McCortexLinks;
 
 use strict;
 use warnings;
@@ -10,7 +10,7 @@ use lib $FindBin::Bin;
 
 use List::Util qw(min max);
 use JSON;
-use CortexScripts; # load_json_hdr()
+use McCortexScripts; # load_json_hdr()
 
 use base 'Exporter';
 our @EXPORT = qw(ctp_print_link ctp_link_to_str ctp_create_link

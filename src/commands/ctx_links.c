@@ -379,7 +379,9 @@ int ctx_links(int argc, char **argv)
     gzputs(link_gz, ctp_explanation_comment);
     gzputs(link_gz, "\n");
 
-    fseek(link_tmp_fh, 0, SEEK_SET);
+    if(fseek(link_tmp_fh, 0, SEEK_SET) != 0)
+      die("fseek failed: %s", strerror(errno));
+
     char *tmp = ctx_malloc(4*ONE_MEGABYTE);
     size_t s;
     while((s = fread(tmp, 1, 4*ONE_MEGABYTE, link_tmp_fh)) > 0) {

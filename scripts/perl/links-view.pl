@@ -9,45 +9,44 @@ use File::Basename; # dirname()
 use FindBin;
 use lib $FindBin::Bin;
 
-use CortexScripts;
-use CortexLinks;
+use McCortexScripts;
+use McCortexLinks;
 
 sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
   print STDERR "" .
-"Usage: ./cortex_mix_links.pl [--kmer <k>] <graph.ctx> <in.ctp>\n" .
+"Usage: $0 [--kmer <k>] <graph.ctx> <in.ctp>\n" .
 "  Interweave link file with graph file in human readable text format.\n";
   exit(-1);
 }
 
-my $maxk = 31;
+my $k = 31;
 
 while(@ARGV > 1 && $ARGV[0] =~ /^-./) {
   if($ARGV[0] =~ /^-?-k(mer)?$/i) {
     my $arg = shift;
-    $maxk = shift;
-    if(!defined($maxk) || $maxk !~ /^\d+$/) {
+    $k = shift;
+    if(!defined($k) || $k !~ /^\d+$/) {
       print_usage("$arg <k> requires an argument");
     }
   }
   else { print_usage("Unknown option '$ARGV[0]'"); }
 }
 
-# Round kmer-size up to max kmer size supported by an executable
-$maxk = int(($maxk+31)/32)*32-1;
+my $mccortex = dirname(__FILE__)."/../bin/mccortex";
+if(!(-x $mccortex)) { die("Have you compiled McCortex with `make`?"); }
 
 if(@ARGV != 2) { print_usage(); }
 
 my ($ctx_path, $ctp_path) = @ARGV;
 
 my $ctp_fh = open_file($ctp_path);
-my $ctp_file = new CortexLinks($ctp_fh, $ctp_path);
+my $ctp_file = new McCortexLinks($ctp_fh, $ctp_path);
 
-# Pipe cortex graph through cortex
+# Pipe graph through McCortex
 # graph file reader command
-my $cmd = dirname(__FILE__)."/../bin/ctx$maxk";
-my $cmdline = "$cmd view --quiet --kmers $ctx_path";
+my $cmdline = "$mccortex $k view --quiet --kmers $ctx_path";
 my $in;
 open($in, '-|', $cmdline) or die $!;
 

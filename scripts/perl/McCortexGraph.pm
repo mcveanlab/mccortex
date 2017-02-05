@@ -1,4 +1,4 @@
-package CortexGraph;
+package McCortexGraph;
 
 use strict;
 use warnings;
@@ -85,14 +85,14 @@ sub get_kmer_size
 }
 
 
-sub get_supernode_extension
+sub get_unitig_extension
 {
   my ($self,$kmer) = @_;
   my $first_key = kmer_key($kmer);
 
   my $key = $first_key;
   my $reverse = get_orientation($kmer,$key);
-  my $supernode = '';
+  my $unitig = '';
   my (@edges_fw, @edges_rv);
 
   while(scalar(@edges_fw = $self->get_edges($key,$reverse)) == 1)
@@ -103,18 +103,18 @@ sub get_supernode_extension
     if($key eq $first_key) { last; }
     $reverse = get_orientation($kmer,$key);
     if(scalar(@edges_rv = $self->get_edges($key,!$reverse)) != 1) {last;}
-    $supernode .= $base;
+    $unitig .= $base;
   }
 
-  return $supernode;
+  return $unitig;
 }
 
-sub get_supernode
+sub get_unitig
 {
   my ($self,$kmer) = @_;
 
-  my $left = $self->get_supernode_extension(revcmp($kmer));
-  my $right = $self->get_supernode_extension($kmer);
+  my $left = $self->get_unitig_extension(revcmp($kmer));
+  my $right = $self->get_unitig_extension($kmer);
   my $contig = revcmp($left).$kmer.$right;
   # print "$kmer $contig\n";
 

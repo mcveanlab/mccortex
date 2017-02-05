@@ -8,9 +8,9 @@ use List::Util qw(min max);
 # Use current directory to find modules as well as bioinf-perl module
 use FindBin;
 use lib $FindBin::Bin;
-use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
+use lib $FindBin::Bin . '/../../libs/bioinf-perl/lib';
 
-use CortexBreakpoints;
+use McCortexBreakpoints;
 use GeneticsModule;
 use FASTNFile;
 
@@ -19,7 +19,7 @@ sub print_usage
   for my $err (@_) { print STDERR "Error: $err\n"; }
   
   print STDERR "" .
-"Usage: ./cortex_brkpnts_check_ref.pl <in.txt> <ref.fa> [ref2.fa ...]
+"Usage: $0 <in.txt> <ref.fa> [ref2.fa ...]
   Check breakpoint calls match the reference\n";
 
   exit(-1);
@@ -34,7 +34,7 @@ if($file =~ /^-?-h(elp)?/) { print_usage(); }
 my $fh;
 open($fh, $file) or die("Cannot read file $file");
 
-my $cb = new CortexBreakpoints($fh);
+my $cb = new McCortexBreakpoints($fh);
 my ($seq5p, $seq3p, $pathseq, $flank5p_refs, $flank3p_refs, $cols, $callid);
 
 # Load references

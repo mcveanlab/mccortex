@@ -6,7 +6,7 @@ use warnings;
 # Use current directory to find modules
 use FindBin;
 use lib $FindBin::Bin;
-use lib $FindBin::Bin . '/../libs/bioinf-perl/lib';
+use lib $FindBin::Bin . '/../../libs/bioinf-perl/lib';
 
 use List::Util qw(min max sum);
 use Fcntl qw(SEEK_SET);
@@ -24,15 +24,15 @@ use GeneticsModule;
 use UsefulModule;
 
 # McCortex modules
-use CortexScripts;
-use CortexLinks;
+use McCortexScripts;
+use McCortexLinks;
 
 sub print_usage
 {
   for my $err (@_) { print STDERR "Error: $err\n"; }
   print STDERR "" .
-"Usage: ./cortex_links.pl [cmd] [args]
-  Plot, list, clean graph path trees. Only works on colour 0 atm.
+"Usage: $0 [cmd] [args]
+  Plot, list, clean graph link trees. Only works on colour 0 atm.
 
   Commands:
     plot   [options] <file> <min_coverage>
@@ -108,7 +108,7 @@ elsif($action == CMD_CLEAN) {
 if(defined($min_coverage)) { print STDERR "Min coverage $min_coverage\n"; }
 
 my $ctp_fh = open_file($ctp_path);
-my $ctp_file = new CortexLinks($ctp_fh, $ctp_path);
+my $ctp_file = new McCortexLinks($ctp_fh, $ctp_path);
 
 my ($kmer, @links_read) = $ctp_file->next();
 

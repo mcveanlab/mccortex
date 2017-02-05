@@ -29,8 +29,11 @@ const char reads_usage[] =
 "  -i, --seqi <in>:<O>         Writes output to <O>.{1,2}.fq.gz\n"
 "\n"
 "  Output is <O>.fq.gz for FASTQ, <O>.fa.gz for FASTA, <O>.txt.gz for plain\n"
-"  Can specify --seq/--seq2/--seqi multiple times. If either read of a pair\n"
-"  touches the graph, both are printed.\n"
+"  Paired reads are saved to e.g. <O>.1.fq.gz, <O>.2.fq.gz, and unpaired reads\n"
+"  to <O>.fq.gz.\n"
+"\n"
+"  User can specify --seq/--seq2/--seqi multiple times. If either read of a\n"
+"  pair touches the graph, both are printed.\n"
 "\n";
 
 static struct option longopts[] =

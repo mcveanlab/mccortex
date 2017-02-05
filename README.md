@@ -68,20 +68,21 @@ If your samples are human, you have a mix of haploid and diploid chromosomes. Th
 
 Now you're ready to run. You'll need to pass:
 - path to McCortex `CTXDIR=`
-- how much memory to use `MEM=`  (2GB for ten E. coli, 100GB for a human)
+- how much memory to use `MEM=`  (2GB for ten E. coli, 70GB for a human)
 - number of threads to use `NTHREADS=`
 
 Run the job file:
 
-    make -f job.k31.k61.mk CTXDIR=~/mccortex MEM=100GB NTHREADS=8 \
+    make -f job.k31.k61.mk CTXDIR=~/mccortex MEM=70GB NTHREADS=8 \
                            JOINT_CALLING=yes USE_LINKS=no brk-geno-vcf
 
-For a human, running time will be about 8 hours for a single sample and use about 100GB of RAM. 
+For a human, running time will be about 8 hours for a single sample and use about 70 of RAM. For small numbers of similar samples, peak memory usage will remain the same as a single sample, and should increase roughly logarithmically with the number of samples.
 
 Job finished? Your results are in: `mc_calls/vcfs/breakpoints.joint.plain.k31.k61.geno.vcf.gz`.
 
 Something go wrong? Take a look at the log file of the last command that ran. You may need to increase memory or compile for a different `MAXK=` value. Once you've fixed the issue, just rerun the `make -f job...` command. Add `--dry-run` to the `make` command to see which commands are going to be run without running them. 
 
+*De novo genotyping:* once de Bruijn graphs have been constructed, they can be used to genotype existing call sets (VCF+ref) without using mapped reads. See [the wiki](https://github.com/mcveanlab/mccortex/wiki/VCF-Genotyping).
 
 Commands
 --------
@@ -171,7 +172,6 @@ Occasionally we also run Coverity Scan. This is done by pushing to the `coverity
     git checkout coverity_scan
     git merge develop
     git checkout --ours .travis.yml
-    git checkout --ours configure
 
 License: MIT
 ------------

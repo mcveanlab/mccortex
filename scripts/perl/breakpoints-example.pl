@@ -9,7 +9,7 @@ use File::Basename;
 use FindBin;
 use lib $FindBin::Bin;
 
-use CortexBreakpoints;
+use McCortexBreakpoints;
 
 sub print_usage
 {
@@ -26,7 +26,7 @@ my ($file) = (@ARGV, "-");
 my $fh;
 open($fh, "gzip -fcd $file |") or die("Cannot read file $file: $!");
 
-my $cb = new CortexBreakpoints($fh,$file);
+my $cb = new McCortexBreakpoints($fh,$file);
 my ($seq5p, $seq3p, $pathseq, $flank5p_refs, $flank3p_refs, $cols, $callid);
 
 while(1)
