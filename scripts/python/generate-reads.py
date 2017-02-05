@@ -55,22 +55,18 @@ def perfect_pe_cov(s,readlen,fraglen,err=None):
 
 def poiss_se_cov(s,readlen,depth,err=None):
   nreads = int((len(s)*depth)/readlen)
-  idx = 1
-  for _ in range(nreads):
+  for idx in range(nreads):
     i = random.randint(0,len(s)-readlen)
-    print_read(s[i:i+readlen],idx,err)
-    idx += 1
+    print_read(s[i:i+readlen],idx+1,err)
 
 def poiss_pe_cov(s,readlen,fraglen,depth,err=None):
   npairs = int((len(s)*depth)/(readlen*2))
   r = reverse_complement(s)
-  idx = 1
-  for _ in range(npairs):
+  for idx in range(npairs):
     i = random.randint(0,len(s)-fraglen)
-    print_read(s[i:i+readlen],str(idx)+"/1",err)
+    print_read(s[i:i+readlen],str(idx+1)+"/1",err)
     j = i+fraglen-readlen
-    print_read(r[len(s)-j-readlen:len(s)-j],str(idx)+"/2",err)
-    idx += 1
+    print_read(r[len(s)-j-readlen:len(s)-j],str(idx+1)+"/2",err)
 
 # returns a matrix m[r][i] = error prob of the i-th position of the r-th read
 def load_err_profile(file):

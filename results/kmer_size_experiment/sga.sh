@@ -6,18 +6,15 @@ set -x
 # Adapted from SGA:
 #  https://github.com/jts/sga/blob/726e2e2831796af63fafcf7b52dc80329fa7f31d/src/examples/sga-ecoli-miseq.sh
 
-# Set IN1, IN2 before calling
-#IN1=MiSeq_Ecoli_MG1655_110721_PF_R1.fastq.gz
-#IN2=MiSeq_Ecoli_MG1655_110721_PF_R2.fastq.gz
-
-if [ $# -ne 2 ]
+if [ $# -ne 3 ]
 then
-  >&2 echo "usage: $0 <in.1.fq.gz> <in.2.fq.gz>"
+  >&2 echo "usage: $0 <in.1.fq.gz> <in.2.fq.gz> <kmer>"
   exit -1
 fi
 
 IN1=$1
 IN2=$2
+K=$3
 
 #
 # Parameters
@@ -34,31 +31,22 @@ ASTAT_BIN=sga-astat.py
 # The number of threads to use
 CPU=1
 
-# Correction k-mer 
+# Correction k-mer
 CORRECTION_K=41
 
 # The minimum overlap to use when computing the graph.
 # The final assembly can be performed with this overlap or greater
-MIN_OVERLAP=85
-
-# The overlap value to use for the final assembly
-ASSEMBLE_OVERLAP=111
+MIN_OVERLAP=$K
 
 # Branch trim length
-TRIM_LENGTH=400
-
-# The minimum length of contigs to include in a scaffold
-MIN_CONTIG_LENGTH=200
-
-# The minimum number of reads pairs required to link two contigs
-MIN_PAIRS=10
+TRIM_LENGTH=100
 
 #
 # Dependency checks
 #
 
 # Check the required programs are installed and executable
-prog_list="$SGA_BIN $BWA_BIN $SAMTOOLS_BIN $BAM2DE_BIN $ASTAT_BIN"
+prog_list="$SGA_BIN"
 for prog in $prog_list; do
     hash $prog 2>/dev/null || { echo "Error $prog not found. Please place $prog on your PATH or update the *_BIN variables in this script"; exit 1; }
 done 
@@ -106,4 +94,4 @@ $SGA_BIN filter -x 2 -t $CPU reads.ec.fastq
 $SGA_BIN overlap -m $MIN_OVERLAP -t $CPU reads.ec.filter.pass.fa
 
 # Perform the contig assembly
-$SGA_BIN assemble -m $ASSEMBLE_OVERLAP --min-branch-length $TRIM_LENGTH -o primary reads.ec.filter.pass.asqg.gz
+$SGA_BIN assemble -m $MIN_OVERLAP -o assemble.m$K reads.ec.filter.pass.asqg.gz

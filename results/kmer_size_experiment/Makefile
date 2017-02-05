@@ -19,7 +19,8 @@ GENREADS=$(CTXDIR)/scripts/python/generate-reads.py
 COUNT_BAD_EDGES=python $(CTXDIR)/scripts/python/count-bad-edges.py
 TIME=/usr/bin/time -l
 
-REF=$(CTXDIR)/results/data/chr22/chr22_17M_18M.fa
+# REF=$(CTXDIR)/results/data/chr22/chr22_17M_18M.fa
+REF=$(CTXDIR)/results/data/chr22/chr22_28M_29M.fa
 PERFECT=data/perfect_cov
 STOCH=data/stoch_cov
 STOCHERR=data/stocherr_cov
@@ -51,9 +52,7 @@ JOBS_PERFECT=$(foreach K,$(KMERS),perfect_k$(K))
 JOBS_STOCH=$(foreach K,$(KMERS),stoch_k$(K))
 JOBS_STOCHERR=$(foreach K,$(KMERS),stocherr_k$(K))
 JOBS_ERRCORR=$(foreach K,$(KMERS),stocherr_corr_k$(K))
-# JOBS_SGA=perfect_cov_sga stoch_cov_sga stocherr_cov_sga stocherr_corr_sga
 
-# all: $(PLAIN_STATS) $(LINKS_STATS) results/bad.edges.csv
 all: $(JOBS_PERFECT) $(JOBS_STOCH) $(JOBS_STOCHERR) $(JOBS_ERRCORR) results/latest/bad.edges.csv
 
 $(REF):
@@ -81,7 +80,7 @@ $(STOCHERR).1.fq.gz: $(REF) | $(DIRS)
 
 $(CORR).2.fq.gz: $(CORR).1.fq.gz
 $(CORR).1.fq.gz: $(READS_STOCHERR) | $(DIRS)
-	$(TIME) $(BFC) -s 1m <($(DNACAT) -F $(READS_STOCHERR)) <($(DNACAT) -F $(READS_STOCHERR)) 2> $@.log | \
+	$(TIME) $(BFC) -s 1m <($(DNACAT) -i -F $(READS_STOCHERR)) <($(DNACAT) -i -F $(READS_STOCHERR)) 2> $@.log | \
 	$(DNADEMUX) -z -Q $(CORR).1.fq.gz $(CORR).2.fq.gz
 
 # perfect_cov/k%/stats.plain.txt perfect_cov/k%/stats.links.txt: $(READS_PERFECT)
@@ -98,10 +97,6 @@ stocherr_k%: $(READS_STOCHERR)
 
 stocherr_corr_k%: $(READS_CORR)
 	$(MAKE) -f $(MKFILE) K=$* REF=$(REF) NAME=stocherr_corr IN1=$(CORR).1.fq.gz IN2=$(CORR).2.fq.gz CLEAN=1
-
-# SGA
-# %_sga: ../../data/%.1.fq.gz ../../data/%.2.fq.gz
-# 	cd $* && make -p sga && cd sga && ../../sga.sh $@
 
 # Find the number of sequencing errors that would add a new edges between two
 # existing kmers
