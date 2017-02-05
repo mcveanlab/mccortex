@@ -13,7 +13,7 @@ const char clean_usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
 "\n"
 "  Clean a cortex graph. Joins graphs first, if multiple inputs given.\n"
-"  If neither -T or -U specified, just saves output statistics.\n"
+"  If output graph file is not specified just saves output statistics.\n"
 "  If given a multisample graph, cleans each sample against the merged population.\n"
 "\n"
 "  -h, --help               This help message\n"
