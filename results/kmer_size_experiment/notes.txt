@@ -13,8 +13,8 @@ Sample reads and assemble with:
 
 Run SGA assembly
 
-    ./sga-all-kmers.sh stocherr_cov/sga ../data/stocherr_cov.1.fq.gz ../data/stocherr_cov.2.fq.gz $REF
-    ./sga-all-kmers.sh stocherr_corr/sga ../data/stocherr_corr.1.fq.gz ../data/stocherr_corr.2.fq.gz $REF
+    ./sga-all-kmers.sh stocherr_cov/sga data/stocherr_cov.1.fq.gz data/stocherr_cov.2.fq.gz $REF
+    ./sga-all-kmers.sh stocherr_corr/sga data/stocherr_corr.1.fq.gz data/stocherr_corr.2.fq.gz $REF
 
 Generate plots and tables with:
 
