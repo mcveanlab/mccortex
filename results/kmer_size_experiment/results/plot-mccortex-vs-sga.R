@@ -73,10 +73,10 @@ par(xpd=TRUE)
 plot(1, type='n', bty="n", log="y", axes=F,
      xlab=xlabel, ylab='# Assembly errors (log)',
      xlim=c(20,100), ylim=c(1,errs_ylim))
-points(jitter(a$K,jf), a$AssemblyErrors, type='b', lwd=lt, pch=pnts[3], col=cols[3], lty=1)
-points(jitter(b$K,jf), b$AssemblyErrors, type='b', lwd=lt, pch=pnts[4], col=cols[4], lty=1)
+points(jitter(a$K,jf), a$AssemblyErrors+1, type='b', lwd=lt, pch=pnts[3], col=cols[3], lty=1)
+points(jitter(b$K,jf), b$AssemblyErrors+1, type='b', lwd=lt, pch=pnts[4], col=cols[4], lty=1)
 axis(1, at=kmers)
-axis(2, at=c(1,10,50,100,200,500), las=2)
+axis(2, at=c(1,2,11,51,101,201,501), labels=c(0,1,10,50,100,200,500), las=2)
 
 par(xpd=TRUE)
 legend("topright", bty="n", inset=c(0.2,-0.15),
