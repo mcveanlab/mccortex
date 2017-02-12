@@ -48,6 +48,14 @@ then
   ./plot-mccortex-vs-sga.R latest/pe-vs-sga-ng50.pdf latest/pe-vs-sga-errs.pdf latest/stocherr.pe.csv latest/stocherr.sga.csv
 fi
 
+if [ -d ../stocherr_corr/sga ]
+then
+  # ../stocherr_corr/sga/k21/stats.k21.txt
+  ./make-csv.sh ../stocherr_corr/sga/k*/stats.k*.txt > latest/stocherrcorr.sga.csv
+  ./plot-mccortex-vs-sga.R latest/corr-links-vs-sga-ng50.pdf latest/corr-links-vs-sga-errs.pdf latest/stocherrcorr.links.csv latest/stocherrcorr.sga.csv
+  ./plot-mccortex-vs-sga.R latest/corr-pe-vs-sga-ng50.pdf latest/corr-pe-vs-sga-errs.pdf latest/stocherrcorr.pe.csv latest/stocherrcorr.sga.csv
+fi
+
 ./plot-ng50-three-sets.R latest/plain-vs-links.pdf \
   latest/perfect.plain.csv latest/perfect.links.csv \
   latest/stoch.plain.csv latest/stoch.links.csv \
