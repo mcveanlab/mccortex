@@ -1,12 +1,22 @@
 
-Requires python and uses the bundled version of bfc
+Requires python and uses the bundled version of bfc. SGA assembly can also be
+generated if you have it installed (e.g. with `brew install science/sga`).
+
+Specify the absolue path to the reference FASTA:
+
+    REF=../data/chr22/chr22_28M_29M.fa
+    REF=$(cd "$(dirname "$REF")"; pwd)/$(basename "$REF")
 
 Sample reads and assemble with:
 
-    make
+    make REF=$REF
+
+Run SGA assembly
+
+    ./sga-all-kmers.sh stocherr_cov/sga ../data/stocherr_cov.1.fq.gz ../data/stocherr_cov.2.fq.gz $REF
+    ./sga-all-kmers.sh stocherr_corr/sga ../data/stocherr_corr.1.fq.gz ../data/stocherr_corr.2.fq.gz $REF
 
 Generate plots and tables with:
 
     cd results
     ./generate-results.sh
-

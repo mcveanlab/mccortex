@@ -38,7 +38,7 @@ lt <- 2.5 # line thickness
 xlabel = expression(tau['min']~'(SGA) or'~italic('k')~'(McCortex)')
 
 # pdf(plot_path, width=6, height=6)
-quartz(type='pdf',file=plot_path,width=6,height=6)
+quartz(type='pdf',file=plot_path,width=6,height=5)
 
 # Remove empty title space
 par(mar=c(4,4,4,2)+0.1) # set margins: bottom, left, top and right
@@ -63,7 +63,7 @@ dev.off()
 
 
 # pdf(errs_path, width=6, height=6)
-quartz(type='pdf',file=errs_path,width=6,height=6)
+quartz(type='pdf',file=errs_path,width=6,height=4)
 
 # Remove empty title space
 par(mar=c(4,4,4,2)+0.1) # set margins: bottom, left, top and right
@@ -79,7 +79,7 @@ axis(1, at=kmers)
 axis(2, at=c(1,10,50,100,200,500), las=2)
 
 par(xpd=TRUE)
-legend("topleft", bty="n", inset=c(0.2,-0.15),
+legend("topright", bty="n", inset=c(0.2,-0.15),
        legend=c("McCortex","SGA"),
        col=cols[3:4], lwd=lt, lty=c(1,1,1),
        pch=pnts[3:4])
