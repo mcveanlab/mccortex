@@ -8,13 +8,13 @@ set -x
 
 if [ $# -ne 3 ]
 then
-  >&2 echo "usage: $0 <in.1.fq.gz> <in.2.fq.gz> <kmer>"
+  >&2 echo "usage: $0 <in.1.fq.gz> <in.2.fq.gz> <kmers>"
   exit -1
 fi
 
-IN1=$1
-IN2=$2
-K=$3
+IN1="$1"
+IN2="$2"
+KMERS="$3"
 
 #
 # Parameters
@@ -33,10 +33,6 @@ CPU=1
 
 # Correction k-mer
 CORRECTION_K=41
-
-# The minimum overlap to use when computing the graph.
-# The final assembly can be performed with this overlap or greater
-MIN_OVERLAP=$K
 
 # Branch trim length
 TRIM_LENGTH=100
@@ -90,8 +86,19 @@ $SGA_BIN index -a ropebwt -t $CPU reads.ec.fastq
 # Remove exact-match duplicates and reads with low-frequency k-mers
 $SGA_BIN filter -x 2 -t $CPU reads.ec.fastq
 
-# Compute the structure of the string graph
-$SGA_BIN overlap -m $MIN_OVERLAP -t $CPU reads.ec.filter.pass.fa
+for K in `echo "$KMERS"`
+do
+  mkdir -p k$K
+  cd k$K
 
-# Perform the contig assembly
-$SGA_BIN assemble -m $MIN_OVERLAP -o assemble.m$K reads.ec.filter.pass.asqg.gz
+  # K is the minimum overlap to use when computing the graph.
+  # The final assembly can be performed with this overlap or greater
+
+  # Compute the structure of the string graph
+  $SGA_BIN overlap -m $K -t $CPU ../reads.ec.filter.pass.fa
+
+  # Perform the contig assembly
+  $SGA_BIN assemble -m $K -o assemble.m$K reads.ec.filter.pass.asqg.gz
+
+  cd ..
+done
