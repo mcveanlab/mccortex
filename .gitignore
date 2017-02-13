@@ -11,6 +11,7 @@
 *.Rhistory
 *.DS_Store
 *.pyc
+*.vagrant
 
 /commit.txt
 /notes.txt
