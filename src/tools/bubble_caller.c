@@ -274,7 +274,7 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
 
   // loop over alleles, then colours
   Colour colour, colours_loaded = db_graph->num_of_cols;
-  bool node_has_col[4];
+  bool node_has_col[4] = {false};
 
   uint32_t pathid;
 
