@@ -75,16 +75,16 @@ static cJSON* _get_header(GPathFileBuffer *gpfiles, const dBGraph *db_graph)
 
   cJSON *hdrs[gpfiles->len];
   for(i = 0; i < gpfiles->len; i++) hdrs[i] = gpfiles->b[i].json;
-  cJSON *json = gpath_save_mkhdr("STDOUT", NULL, NULL, hdrs, gpfiles->len,
-                                 contig_histgrms, db_graph->num_of_cols,
-                                 db_graph);
+  cJSON *jsonhdr = gpath_save_mkhdr("STDOUT", NULL, NULL, hdrs, gpfiles->len,
+                                    contig_histgrms, db_graph->num_of_cols,
+                                    db_graph);
 
   for(i = 0; i < db_graph->num_of_cols; i++)
     zsize_buf_dealloc(&contig_histgrms[i]);
 
   ctx_free(contig_histgrms);
 
-  return json;
+  return jsonhdr;
 }
 
 int ctx_pview(int argc, char **argv)
@@ -216,10 +216,10 @@ int ctx_pview(int argc, char **argv)
 
   // Generate merged header
   if(!paths_only) {
-    cJSON *json = _get_header(&gpfiles, &db_graph);
-    json_hdr_fprint(json, fout);
+    cJSON *jsonhdr = _get_header(&gpfiles, &db_graph);
+    json_hdr_fprint(jsonhdr, fout);
     fputs(ctp_explanation_comment, fout);
-    cJSON_Delete(json);
+    cJSON_Delete(jsonhdr);
   }
 
   if(!header_only)

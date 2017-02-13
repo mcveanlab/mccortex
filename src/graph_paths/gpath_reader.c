@@ -55,10 +55,10 @@ const char* gpath_reader_get_sample_name(const GPathReader *file, size_t idx)
 {
   if(idx >= file->ncolours)
     die("Sample %zu > %zu: %s", idx, file->ncolours, file->fltr.path.b);
-  cJSON *json = cJSON_GetObjectItem(file->colours_json[idx], "sample");
-  if(json == NULL || json->type != cJSON_String)
+  cJSON *jsonhdr = cJSON_GetObjectItem(file->colours_json[idx], "sample");
+  if(jsonhdr == NULL || jsonhdr->type != cJSON_String)
     die("Sample %zu has no field 'sample': %s", idx, file->fltr.path.b);
-  return json->valuestring;
+  return jsonhdr->valuestring;
 }
 
 void gpath_reader_load_contig_hist(cJSON *json_root, const char *path,

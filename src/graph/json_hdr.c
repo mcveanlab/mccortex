@@ -62,14 +62,14 @@ void json_hdr_read(FILE *fh, gzFile gz, const char *path, StrBuf *hdrstr)
 
 cJSON* json_hdr_load(gzFile gzin, const char *path)
 {
-  cJSON *json;
+  cJSON *jsonhdr;
   StrBuf hdrstr;
   strbuf_alloc(&hdrstr, 1024);
   json_hdr_read(NULL, gzin, path, &hdrstr);
-  json = cJSON_Parse(hdrstr.b);
-  if(json == NULL) die("Invalid JSON header: %s", path);
+  jsonhdr = cJSON_Parse(hdrstr.b);
+  if(jsonhdr == NULL) die("Invalid JSON header: %s", path);
   strbuf_dealloc(&hdrstr);
-  return json;
+  return jsonhdr;
 }
 
 /**
@@ -154,21 +154,21 @@ cJSON* json_hdr_new_command(const char *path, const char *fileidstr)
 }
 
 // Add current command to a header
-void json_hdr_add_curr_cmd(cJSON *json, const char *path)
+void json_hdr_add_curr_cmd(cJSON *jsonhdr, const char *path)
 {
   // Add random id string
   #define FILE_KEY_LEN 16
   char fileidstr[FILE_KEY_LEN+1];
   hex_rand_str(fileidstr, FILE_KEY_LEN+1);
 
-  cJSON *filekey = json_hdr_get(json, "file_key", cJSON_String, path);
+  cJSON *filekey = json_hdr_get(jsonhdr, "file_key", cJSON_String, path);
   free(filekey->valuestring);
   filekey->valuestring = strdup(fileidstr);
 
   cJSON *command = json_hdr_new_command(path, fileidstr);
   cJSON *prev_list = json_hdr_get(command, "prev", cJSON_Array, path);
 
-  cJSON *commands = json_hdr_get(json, "commands", cJSON_Array, path);
+  cJSON *commands = json_hdr_get(jsonhdr, "commands", cJSON_Array, path);
   command->next = commands->child;
 
   if(commands->child) {
@@ -185,7 +185,7 @@ void json_hdr_add_curr_cmd(cJSON *json, const char *path)
  * Merge commands from input files @hdrs
  * @param path is the path of the file we are writing to
  */
-void json_hdr_make_std(cJSON *json, const char *path,
+void json_hdr_make_std(cJSON *jsonhdr, const char *path,
                        cJSON **hdrs, size_t nhdrs,
                        const dBGraph *db_graph, size_t nkmers_in_graph)
 {
@@ -193,10 +193,10 @@ void json_hdr_make_std(cJSON *json, const char *path,
   #define FILE_KEY_LEN 16
   char fileidstr[FILE_KEY_LEN+1];
   hex_rand_str(fileidstr, FILE_KEY_LEN+1);
-  cJSON_AddStringToObject(json, "file_key", fileidstr);
+  cJSON_AddStringToObject(jsonhdr, "file_key", fileidstr);
 
   cJSON *graph = cJSON_CreateObject();
-  cJSON_AddItemToObject(json, "graph", graph);
+  cJSON_AddItemToObject(jsonhdr, "graph", graph);
 
   cJSON_AddNumberToObject(graph, "num_colours",        db_graph->num_of_cols);
   cJSON_AddNumberToObject(graph, "kmer_size",          db_graph->kmer_size);
@@ -225,7 +225,7 @@ void json_hdr_make_std(cJSON *json, const char *path,
   }
 
   cJSON *commands = cJSON_CreateArray();
-  cJSON_AddItemToObject(json, "commands", commands);
+  cJSON_AddItemToObject(jsonhdr, "commands", commands);
   cJSON *command = json_hdr_new_command(path, fileidstr);
   cJSON_AddItemToArray(commands, command);
   cJSON *prev_list = json_hdr_get(command, "prev", cJSON_Array, path);
@@ -276,10 +276,10 @@ void json_hdr_make_std(cJSON *json, const char *path,
  * @param add JSON objects to add to JSON object field
  * @param nadd number of @add objects
  */
-void json_hdr_augment_cmd(cJSON *json, const char *cmdstr,
+void json_hdr_augment_cmd(cJSON *jsonhdr, const char *cmdstr,
                           const char *field, cJSON *add)
 {
-  cJSON *cmd = json_hdr_get_curr_cmd(json, ":json_hdr_augment_cmd():1:");
+  cJSON *cmd = json_hdr_get_curr_cmd(jsonhdr, ":json_hdr_augment_cmd():1:");
   cJSON *data = json_hdr_try(cmd, cmdstr, cJSON_Object, ":json_hdr_augment_cmd():2:");
   if(!data) {
     data = cJSON_CreateObject();
@@ -288,33 +288,33 @@ void json_hdr_augment_cmd(cJSON *json, const char *cmdstr,
   cJSON_AddItemToObject(data, field, add);
 }
 
-void json_hdr_gzprint(cJSON *json, gzFile gzout)
+void json_hdr_gzprint(cJSON *jsonhdr, gzFile gzout)
 {
-  char *jstr = cJSON_Print(json);
+  char *jstr = cJSON_Print(jsonhdr);
   gzputs(gzout, jstr);
   gzputs(gzout, "\n\n");
   free(jstr);
 }
 
-void json_hdr_fprint(cJSON *json, FILE *fout)
+void json_hdr_fprint(cJSON *jsonhdr, FILE *fout)
 {
-  char *jstr = cJSON_Print(json);
+  char *jstr = cJSON_Print(jsonhdr);
   fputs(jstr, fout);
   fputs("\n\n", fout);
   free(jstr);
 }
 
-cJSON* json_hdr_try(cJSON *json, const char *field, int type, const char *path)
+cJSON* json_hdr_try(cJSON *jsonhdr, const char *field, int type, const char *path)
 {
-  cJSON *obj = cJSON_GetObjectItem(json, field);
+  cJSON *obj = cJSON_GetObjectItem(jsonhdr, field);
   if(obj && obj->type != type)
     die("JSON field not of correct type: %s [path: %s]", field, path);
   return obj;
 }
 
-cJSON* json_hdr_get(cJSON *json, const char *field, int type, const char *path)
+cJSON* json_hdr_get(cJSON *jsonhdr, const char *field, int type, const char *path)
 {
-  cJSON *obj = cJSON_GetObjectItem(json, field);
+  cJSON *obj = cJSON_GetObjectItem(jsonhdr, field);
   if(obj == NULL)
     die("Cannot find field in JSON header: %s [path: %s]", field, path);
   if(obj->type != type)
@@ -322,15 +322,15 @@ cJSON* json_hdr_get(cJSON *json, const char *field, int type, const char *path)
   return obj;
 }
 
-long json_hdr_demand_int(cJSON *json, const char *field, const char *path)
+long json_hdr_demand_int(cJSON *jsonhdr, const char *field, const char *path)
 {
-  cJSON *obj = json_hdr_get(json, field, cJSON_Number, path);
+  cJSON *obj = json_hdr_get(jsonhdr, field, cJSON_Number, path);
   return obj->valueint;
 }
 
-size_t json_hdr_demand_uint(cJSON *json, const char *field, const char *path)
+size_t json_hdr_demand_uint(cJSON *jsonhdr, const char *field, const char *path)
 {
-  cJSON *obj = json_hdr_get(json, field, cJSON_Number, path);
+  cJSON *obj = json_hdr_get(jsonhdr, field, cJSON_Number, path);
   if(obj->valueint < 0) {
     die("JSON field should not be less than zero: %s (%li) [path: %s]",
         field, obj->valueint, path);
@@ -338,9 +338,9 @@ size_t json_hdr_demand_uint(cJSON *json, const char *field, const char *path)
   return obj->valueint;
 }
 
-size_t json_hdr_get_kmer_size(cJSON *json, const char *path)
+size_t json_hdr_get_kmer_size(cJSON *jsonhdr, const char *path)
 {
-  cJSON *graph = json_hdr_get_graph(json, path);
+  cJSON *graph = json_hdr_get_graph(jsonhdr, path);
 
   long val = json_hdr_demand_int(graph, "kmer_size", path);
   if(val < MIN_KMER_SIZE || val > MAX_KMER_SIZE || !(val & 1)) {
@@ -350,16 +350,16 @@ size_t json_hdr_get_kmer_size(cJSON *json, const char *path)
   return val;
 }
 
-bool json_hdr_colour_is_ref(cJSON *json)
+bool json_hdr_colour_is_ref(cJSON *jsonhdr)
 {
-  cJSON *isref = cJSON_GetObjectItem(json, "is_ref");
+  cJSON *isref = cJSON_GetObjectItem(jsonhdr, "is_ref");
   return (isref && isref->type == cJSON_True);
 }
 
 // Get the number of non-ref samples in the graph
-size_t json_hdr_get_nonref_ncols(cJSON *json, const char *path)
+size_t json_hdr_get_nonref_ncols(cJSON *jsonhdr, const char *path)
 {
-  cJSON *graph = json_hdr_get_graph(json, path);
+  cJSON *graph = json_hdr_get_graph(jsonhdr, path);
   cJSON *cols = json_hdr_get(graph, "colours", cJSON_Array, path);
   cJSON *col;
   size_t num_nonref_cols = 0;
@@ -368,17 +368,17 @@ size_t json_hdr_get_nonref_ncols(cJSON *json, const char *path)
   return num_nonref_cols;
 }
 
-size_t json_hdr_get_ncols(cJSON *json, const char *path)
+size_t json_hdr_get_ncols(cJSON *jsonhdr, const char *path)
 {
-  cJSON *graph = json_hdr_get_graph(json, path);
+  cJSON *graph = json_hdr_get_graph(jsonhdr, path);
   size_t val = json_hdr_demand_uint(graph, "num_colours", path);
   if(val < 1 || val > 100000) die("Invalid number of colours: %zu", val);
   return val;
 }
 
-cJSON* json_hdr_get_curr_cmd(cJSON *json, const char *path)
+cJSON* json_hdr_get_curr_cmd(cJSON *jsonhdr, const char *path)
 {
-  cJSON *cmds = json_hdr_get(json, "commands", cJSON_Array, path);
+  cJSON *cmds = json_hdr_get(jsonhdr, "commands", cJSON_Array, path);
   if(cmds->child == NULL) die("No 'commands' field in header");
   return cmds->child;
 }

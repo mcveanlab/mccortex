@@ -261,11 +261,11 @@ static char* make_info_json_str(cJSON **hdrs, size_t nhdrs,
                                 bool pretty, size_t nkmers,
                                 const dBGraph *db_graph)
 {
-  cJSON *json = cJSON_CreateObject();
-  json_hdr_make_std(json, NULL, hdrs, nhdrs, db_graph, nkmers);
+  cJSON *jsonhdr = cJSON_CreateObject();
+  json_hdr_make_std(jsonhdr, NULL, hdrs, nhdrs, db_graph, nkmers);
 
   cJSON *paths = cJSON_CreateObject();
-  cJSON_AddItemToObject(json, "paths", paths);
+  cJSON_AddItemToObject(jsonhdr, "paths", paths);
 
   // Add command specific header fields
   const GPathStore *gpstore = &db_graph->gpstore;
@@ -273,8 +273,8 @@ static char* make_info_json_str(cJSON **hdrs, size_t nhdrs,
   cJSON_AddNumberToObject(paths, "num_paths", gpstore->num_paths);
   cJSON_AddNumberToObject(paths, "path_bytes", gpstore->path_bytes);
 
-  char *info_txt = pretty ? cJSON_Print(json) : cJSON_PrintUnformatted(json);
-  cJSON_Delete(json);
+  char *info_txt = pretty ? cJSON_Print(jsonhdr) : cJSON_PrintUnformatted(jsonhdr);
+  cJSON_Delete(jsonhdr);
 
   return info_txt;
 }

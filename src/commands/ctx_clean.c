@@ -176,7 +176,7 @@ int ctx_clean(int argc, char **argv)
       case 'S': cmd_check(!sort_kmers,cmd); sort_kmers = true; break;
       case 'U':
         cmd_check(unitig_min<0, cmd);
-        unitig_min = (optarg != NULL ? cmd_uint32(cmd, optarg) : -1);
+        unitig_min = (optarg != NULL ? (int)cmd_uint32(cmd, optarg) : -1);
         unitig_cleaning = true;
         break;
       case 'B': cmd_check(!fallback_thresh, cmd); fallback_thresh = cmd_uint32_nonzero(cmd, optarg); break;
