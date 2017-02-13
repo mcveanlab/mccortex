@@ -32,6 +32,7 @@ PYSTATS=python $(CTXDIR)/scripts/python/break-contigs-vs-truth.py
 
 DIR=$(NAME)/k$(K)
 MEM=1G
+CONTIGS_ARGS=--no-missing-check
 
 RAWGRAPH=$(DIR)/graph.k$(K).raw.ctx
 CLEANGRAPH=$(DIR)/graph.k$(K).clean.ctx
@@ -81,13 +82,13 @@ $(DIR)/graph.k$(K).dist.txt: $(RAWGRAPH) $(CLEANGRAPH) $(PERFECTGRAPH)
 	$(MCCORTEX) dist -m $(MEM) -o $@ $(RAWGRAPH) $(CLEANGRAPH) $(PERFECTGRAPH) >& $@.log
 
 $(DIR)/contigs.plain.fa: $(GRAPH)
-	$(MCCORTEX) contigs -m $(MEM) -o $@ $< >& $@.log
+	$(MCCORTEX) contigs $(CONTIGS_ARGS) -m $(MEM) -o $@ $< >& $@.log
 
 $(DIR)/contigs.links.fa: $(GRAPH) $(SELINKS)
-	$(MCCORTEX) contigs -m $(MEM) -p $(SELINKS) -o $@ $< >& $@.log
+	$(MCCORTEX) contigs $(CONTIGS_ARGS) -m $(MEM) -p $(SELINKS) -o $@ $< >& $@.log
 
 $(DIR)/contigs.pe.fa: $(GRAPH) $(PELINKS)
-	$(MCCORTEX) contigs -m $(MEM) -p $(PELINKS) -o $@ $< >& $@.log
+	$(MCCORTEX) contigs $(CONTIGS_ARGS) -m $(MEM) -p $(PELINKS) -o $@ $< >& $@.log
 
 $(DIR)/contigs.%.rmdup.fa: $(DIR)/contigs.%.fa
 	$(MCCORTEX31) rmsubstr -m $(MEM) -n 50M -k 21 -o $@ $< >& $@.log

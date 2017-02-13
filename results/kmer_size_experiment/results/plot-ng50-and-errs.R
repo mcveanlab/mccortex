@@ -14,12 +14,12 @@ if(length(args) != 4 && length(args) != 5 && length(args) != 8) {
   stop("Usage: ./plot-ng50-and-errs.R <title> <out.pdf> <plain.csv> <links.csv> [[pe.csv] [<p.c.csv> <l.c.csv> <pe.c.csv>]]\n")
 }
 
-plain_csv <- "perfect.plain.csv"
-links_csv <- "perfect.links.csv"
-pe_csv <- "perfect.pe.csv"
-plot_title <- "Perfect coverage (100X, 100bp reads)"
-use_pe <- TRUE
-use_corr <- FALSE
+# plain_csv <- "perfect.plain.csv"
+# links_csv <- "perfect.links.csv"
+# pe_csv <- "perfect.pe.csv"
+# plot_title <- "Perfect coverage (100X, 100bp reads)"
+# use_pe <- TRUE
+# use_corr <- FALSE
 
 # plain_csv <- "latest/stoch.plain.csv"
 # links_csv <- "latest/stoch.links.csv"
@@ -28,12 +28,12 @@ use_corr <- FALSE
 # use_pe <- TRUE
 # use_corr <- FALSE
 
-# plain_csv <- "latest/stocherr.plain.csv"
-# links_csv <- "latest/stocherr.links.csv"
-# pe_csv <- "latest/stocherr.pe.csv"
-# plot_title <- "Stochastic coverage + 0.5% err (100X, 100bp reads)"
-# use_pe <- TRUE
-# use_corr <- FALSE
+plain_csv <- "latest/stocherr.plain.csv"
+links_csv <- "latest/stocherr.links.csv"
+pe_csv <- "latest/stocherr.pe.csv"
+plot_title <- "Stochastic coverage + 0.5% err (100X, 100bp reads)"
+use_pe <- TRUE
+use_corr <- FALSE
 
 plain_csv <- "latest/stocherr.plain.csv"
 links_csv <- "latest/stocherr.links.csv"
@@ -47,6 +47,9 @@ use_corr <- TRUE
 
 # output_pdf <- "plot.pdf"
 
+#
+# Parse params
+#
 use_pe <- (length(args) >= 5)
 use_corr <- (length(args) >= 8)
 
@@ -62,6 +65,7 @@ if(use_corr) {
   corr_links_csv <- args[7]
   corr_pe_csv <- args[8]
 }
+
 
 a <- read.table(plain_csv,sep=',',head=T,comment.char='#',as.is=T)
 a$graph = factor('plain')
@@ -103,7 +107,7 @@ N50_ylim <- 100
 asm_ylim <- 5
 if(use_pe) {
   N50_ylim <- 150
-  asm_ylim <- 150
+  asm_ylim <- 1000
 }
 
 xlabel = expression(italic('k'))
@@ -126,8 +130,8 @@ if(use_corr) {
 p2 <- ggplot(data=d, aes(x=K, y=AssemblyErrors, color=graph)) + theme_minimal() +
       geom_line() + geom_point(shape=4) +
       scale_x_continuous(breaks=d$K, minor_breaks=NULL) +
-      scale_y_continuous(limits=c(0,asm_ylim)) +
-      ylab("Assembly Errors") +
+      scale_y_continuous(limits=c(0, asm_ylim), trans="log1p") +
+      ylab("Assembly Errors (log)") +
       theme(legend.position="none") # hide legend
 
 if(use_corr) {
