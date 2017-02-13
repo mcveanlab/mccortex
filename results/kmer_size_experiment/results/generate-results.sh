@@ -6,7 +6,7 @@ for d in perfect_cov stoch_cov stocherr_cov stocherr_corr
 do
   if [ -d ../$d/k99 ]
   then
-    mv ../$d/k99 ../$d/99_hidden
+    mv ../$d/k99 ../$d/hidden_k99
   fi
 done
 
@@ -93,8 +93,8 @@ echo "-- Making cleaning tables"
 # unhide k99 files
 for d in perfect_cov stoch_cov stocherr_cov stocherr_corr
 do
-  if [ -d ../$d/k99_hidden ]
+  if [ -d ../$d/hidden_k99 ]
   then
-    mv ../$d/k99_hidden ../$d/k99
+    mv ../$d/hidden_k99 ../$d/k99
   fi
 done

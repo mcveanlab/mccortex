@@ -32,7 +32,7 @@ PYSTATS=python $(CTXDIR)/scripts/python/break-contigs-vs-truth.py
 
 DIR=$(NAME)/k$(K)
 MEM=1G
-CONTIGS_ARGS=--no-missing-check
+CONTIGS_ARGS=--no-missing-check --confid-step 0.8
 
 RAWGRAPH=$(DIR)/graph.k$(K).raw.ctx
 CLEANGRAPH=$(DIR)/graph.k$(K).clean.ctx
