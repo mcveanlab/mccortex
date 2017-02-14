@@ -8,7 +8,6 @@ STAMPY=/apps/well/stampy/1.0.23-py2.6/stampy.py
 #
 
 CTXDIR=../..
-CTX=$(CTXDIR)/bin/mccortex31
 CTXPIPELINE=$(CTXDIR)/scripts/make-pipeline.pl
 READSIM=$(CTXDIR)/libs/readsim/readsim
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
