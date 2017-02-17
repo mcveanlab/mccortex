@@ -61,6 +61,9 @@ then
   ./make-csv.sh ../stocherr_corr/sga/k*/stats.k*.txt > latest/stocherrcorr.sga.csv
   ./plot-mccortex-vs-sga.R latest/corr-links-vs-sga-ng50.pdf latest/corr-links-vs-sga-errs.pdf latest/stocherrcorr.links.csv latest/stocherrcorr.sga.csv
   ./plot-mccortex-vs-sga.R latest/corr-pe-vs-sga-ng50.pdf latest/corr-pe-vs-sga-errs.pdf latest/stocherrcorr.pe.csv latest/stocherrcorr.sga.csv
+  # Corrected + McCortex vs raw + SGA
+  ./plot-mccortex-vs-sga.R latest/corr-links-vs-raw-sga-ng50.pdf latest/corr-links-vs-raw-sga-errs.pdf latest/stocherrcorr.links.csv latest/stocherr.sga.csv
+  ./plot-mccortex-vs-sga.R latest/corr-pe-vs-raw-sga-ng50.pdf latest/corr-pe-vs-raw-sga-errs.pdf latest/stocherrcorr.pe.csv latest/stocherr.sga.csv
 fi
 
 echo "-- Plain vs links"
