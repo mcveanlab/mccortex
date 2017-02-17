@@ -2,6 +2,7 @@
 set -eou pipefail
 
 # hide k99 files
+echo "-- hiding k=99"
 for d in perfect_cov stoch_cov stocherr_cov stocherr_corr
 do
   if [ -d ../$d/k99 ]
@@ -90,7 +91,23 @@ echo "-- Making cleaning tables"
 ./make-cleaning-table.py ../stocherr_cov/k*/graph.k*.dist.txt > latest/cleaning.table.csv
 ./make-cleaning-table.py ../stocherr_corr/k*/graph.k*.dist.txt > latest/cleaning.corr.table.csv
 
+echo "-- Make link count csv"
+for t in se pe; do
+  cat ../perfect_cov/k*/graph.k*.$t.raw.ctp.gz.log | ./count-links.pl > latest/perfect.linkcounts.$t.csv
+  cat ../stoch_cov/k*/graph.k*.$t.raw.ctp.gz.log | ./count-links.pl > latest/stoch.linkcounts.$t.csv
+  cat ../stocherr_cov/k*/graph.k*.$t.raw.ctp.gz.log | ./count-links.pl > latest/stocherr.linkcounts.$t.csv
+  cat ../stocherr_corr/k*/graph.k*.$t.raw.ctp.gz.log | ./count-links.pl > latest/stocherrcorr.linkcounts.$t.csv
+done
+for t in se pe; do
+  for s in perfect stoch stocherr stocherrcorr; do
+    ./plot-link-counts.R latest/$s.linkcounts.$t.pdf latest/$s.linkcounts.$t.csv
+  done
+  ./plot-link-counts-together.R latest/linkcounts.$t.pdf latest/{perfect,stoch,stocherr,stocherrcorr}.linkcounts.$t.csv
+done
+
+
 # unhide k99 files
+echo "-- recovering k=99"
 for d in perfect_cov stoch_cov stocherr_cov stocherr_corr
 do
   if [ -d ../$d/hidden_k99 ]
