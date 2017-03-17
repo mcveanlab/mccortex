@@ -17,7 +17,7 @@ REF=../ref/ref.fa
 all: test
 
 clean:
-	rm -rf calls.cov.vcf* lowmem.cov.vcf* pluto.k$(K).ctx
+	rm -rf calls.cov.vcf* lowmem.cov.vcf* pluto.k$(K).ctx *.log
 
 %.k$(K).ctx: %.fa
 	$(MCCORTEX) build -m 10M -k $(K) --sample $* --seq $< $@ >& $@.log

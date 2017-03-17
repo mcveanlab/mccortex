@@ -17,7 +17,7 @@ REF=../ref/ref.fa
 all: test
 
 clean:
-	rm -rf calls.cov.vcf* lowmem.cov.vcf* graph.k$(K).ctx
+	rm -rf calls.cov.vcf* lowmem.cov.vcf* graph.k$(K).ctx *.log
 
 calls.cov.vcf.log: calls.cov.vcf
 calls.cov.vcf: $(REF) calls.vcf graph.k$(K).ctx
