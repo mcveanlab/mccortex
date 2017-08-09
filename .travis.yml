@@ -13,6 +13,13 @@ os:
 
 sudo: false
 
+# For linux systems
+addons:
+  apt:
+    packages:
+    - liblzma-dev # (requried for htslib+linux)
+    - libbz2-dev  # (requried for htslib+linux)
+
 # Multi language support on TravisCI would be nice
 # language: perl
 # perl: "5.20"
