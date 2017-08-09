@@ -4,7 +4,7 @@ SHELL=/bin/bash
 # make all      <- compile all libraries (deps + analysis)
 # make clean    <- clean all libraries
 
-CORE=xxHash htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib carrays misc
+CORE=htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib carrays misc
 OTHER=bcftools samtools bwa bfc readsim bioinf-perl maximal_substrs vcf-slim
 
 ALLTGTS=$(CORE) $(OTHER)
@@ -98,7 +98,7 @@ test:
 # Clean
 #
 clean:
-	cd xxHash && $(MAKE) clean
+	# cd xxHash && $(MAKE) clean
 	cd htslib && $(MAKE) clean
 	cd bcftools && $(MAKE) clean
 	cd samtools && $(MAKE) clean
