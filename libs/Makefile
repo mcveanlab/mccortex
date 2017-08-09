@@ -20,8 +20,8 @@ all: core other
 #
 # Build
 #
-xxHash: xxHash/Makefile
-	cd xxHash && $(MAKE)
+# xxHash: xxHash/Makefile
+# 	cd xxHash && $(MAKE)
 
 htslib: htslib/Makefile
 	# Run configure if config makefile not created

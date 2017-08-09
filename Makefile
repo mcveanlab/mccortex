@@ -81,7 +81,8 @@ MISC_SRCS=$(wildcard libs/misc/*.c)
 MISC_HDRS=$(wildcard libs/misc/*.h)
 MISC_OBJS=$(MISC_SRCS:.c=.o)
 
-LIB_MISC=$(MISC_SRCS) libs/xxHash/xxhash.c
+LIB_MISC=$(MISC_SRCS)
+# LIB_MISC=$(MISC_SRCS) libs/xxHash/xxhash.c
 # LIB_MISC=$(MISC_OBJS)
 
 ifdef LIB_PATH

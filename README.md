@@ -200,12 +200,16 @@ Used in testing:
 Citing
 ------
 
-'Cortex with low memory and read threading' is currently unpublished.  Please
-cite previous cortex_var papers:
+If you find McCortex useful, please cite our paper:
+
+* Integrating long-range connectivity information into de Bruijn graphs,
+  Turner I, Garimella K, Iqbal Z, McVean G (BioRxiv) (2017) http://www.biorxiv.org/content/early/2017/06/09/147777
+
+Other Cortex papers:
 
 * De novo assembly and genotyping of variants using colored de Bruijn graphs,
-Iqbal(*), Caccamo(*), Turner, Flicek, McVean (Nature Genetics) (2012)
-(doi:10.1038/ng.1028) http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3272472
+  Iqbal(*), Caccamo(*), Turner, Flicek, McVean (Nature Genetics) (2012)
+  (doi:10.1038/ng.1028) http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3272472
 * High-throughput microbial population genomics using the Cortex variation assembler,
-Iqbal, Turner, McVean (Bioinformatics) (Nov 2012)
-(doi:10.1093/bioinformatics/bts673) http://www.ncbi.nlm.nih.gov/pubmed/23172865
+  Iqbal, Turner, McVean (Bioinformatics) (Nov 2012)
+  (doi:10.1093/bioinformatics/bts673) http://www.ncbi.nlm.nih.gov/pubmed/23172865
