@@ -26,7 +26,7 @@ all: core other
 htslib: htslib/Makefile
 	# Run configure if config makefile not created
 	cd htslib && ( ( [ "$$(uname)" == "Darwin" ] && [ -f config.mk ] ) || \
-( autoheader && autoconf && ./configure --disable-lzma --disable-bz2 --disable-libcurl )) && \
+( autoheader && autoreconf && ./configure --disable-lzma --disable-bz2 --disable-libcurl )) && \
 $(MAKE)
 
 bcftools: htslib bcftools/Makefile
