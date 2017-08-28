@@ -11,8 +11,6 @@ os:
 - linux
 - osx
 
-sudo: false
-
 # For linux systems
 addons:
   apt:
