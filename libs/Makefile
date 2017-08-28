@@ -25,7 +25,7 @@ all: core other
 
 htslib: htslib/Makefile
 	# Run configure if config makefile not created
-	cd htslib && autoreconf && ./configure --disable-lzma --disable-bz2 --disable-libcurl && $(MAKE)
+	cd htslib && autoreconf && ./configure --disable-lzma --disable-bz2 --disable-libcurl && $(MAKE) -e
 
 bcftools: htslib bcftools/Makefile
 	cd bcftools && $(MAKE)
