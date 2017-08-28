@@ -25,6 +25,15 @@ Download with:
 
     git clone --recursive https://github.com/mcveanlab/mccortex
 
+Install dependencies (for htslib) on mac:
+
+    brew update
+    brew install xz
+
+Or on linux:
+
+    sudo apt install liblzma-dev libbz2-dev
+
 To compile for a maximum kmer size of 31:
 
     make all

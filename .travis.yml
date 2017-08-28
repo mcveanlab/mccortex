@@ -20,12 +20,10 @@ addons:
     - liblzma-dev # (requried for htslib+linux)
     - libbz2-dev  # (requried for htslib+linux)
 
-# Multi language support on TravisCI would be nice
-# language: perl
-# perl: "5.20"
-
 before_install:
   - git submodule update --init --recursive
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update    ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install xz; fi
 
 install:
   - ./travis/install.sh
