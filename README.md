@@ -140,9 +140,6 @@ Type a command with no arguments to see usage. The following may also be useful:
 * Report a [bug / feature request](https://github.com/mcveanlab/mccortex/issues) on GitHub
 * Email me: Isaac Turner <turner.isaac@gmail.com>
 
-Live chat (email me to fix a time):
-* [HipChat](http://www.hipchat.com/gbF6Zf4k3) to instant message -- please email me first to arrange a time
-* [![Gitter https://gitter.im/mcveanlab/mccortex](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/mcveanlab/mccortex?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 Code And Contributing
 ---------------------
