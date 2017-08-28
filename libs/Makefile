@@ -25,7 +25,7 @@ all: core other
 
 htslib: htslib/Makefile
 	# Run configure if config makefile not created
-	cd htslib && ( [ -f config.mk ] || ( autoreconf && ./configure ) ) && $(MAKE)
+	cd htslib && ( if ! [ -f config.mk ]; then autoreconf && ./configure; fi; $(MAKE) -e )
 
 bcftools: htslib bcftools/Makefile
 	cd bcftools && $(MAKE)
