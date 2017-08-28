@@ -3,6 +3,7 @@
 #       see https://github.com/travis-ci/travis-ci/issues/1975
 #       Instead we use a script to decide if we should do anything
 
+dist: trusty
 language: c
 compiler:
 - clang
@@ -10,18 +11,6 @@ compiler:
 os:
 - linux
 - osx
-
-# For linux systems
-addons:
-  apt:
-    packages:
-    - liblzma-dev # (requried for htslib+linux)
-    - libbz2-dev  # (requried for htslib+linux)
-
-before_install:
-  - git submodule update --init --recursive
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update    ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install xz; fi
 
 install:
   - ./travis/install.sh
