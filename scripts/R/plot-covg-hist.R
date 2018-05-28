@@ -4,8 +4,14 @@
 # input csv should have the columns: 'Covg' and 'NumUnitigs'
 #
 args <- commandArgs(trailingOnly=TRUE)
-if(length(args) != 4) {
-  stop("Usage: Rscript --vanilla plot-covg-hist.R <covg.csv> <out.pdf> [<cutoff> [<kcov>]]\n  Optional: set cutoff, kcov to zero\n")
+if(length(args) < 2 || length(args) > 4) {
+  stop(paste("Usage: Rscript --vanilla plot-covg-hist.R <covg.csv> <out.pdf> [<cutoff> [<kcov>]]",
+             "  covg.csv  - coverage CSV file with 'Covg', 'NumUnitigs' headings",
+             "  out.pdf   - output pdf file",
+             "  cutoff    - cleaning cutoff used [optional]",
+             "  kcov      - kmer coverage of sample [optional]",
+             "",
+             sep="\n"))
 }
 
 cutoff <- 0
