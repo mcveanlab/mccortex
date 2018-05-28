@@ -1,9 +1,10 @@
 McCortex: Population De Novo Assembly and Variant Calling
 ===============================================
 
-* Integrating long-range connectivity information into de Bruijn graphs
-  Turner I, Garimella K, Iqbal Z, McVean G (Bioinformatics) (Advanced access 15 March 2018)
+* _Integrating long-range connectivity information into de Bruijn graphs_
+  Turner I, Garimella K, Iqbal Z, McVean G (*Bioinformatics*; Advanced access 15 March 2018)
   https://academic.oup.com/bioinformatics/advance-article/doi/10.1093/bioinformatics/bty157/4938484
+
 
 Multi-sample de novo assembly and variant calling using de bruijn graphs.
 Variant calling with and without a reference genome. Between closely related
