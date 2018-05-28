@@ -6,13 +6,13 @@ McCortex: Population De Novo Assembly and Variant Calling
   https://academic.oup.com/bioinformatics/advance-article/doi/10.1093/bioinformatics/bty157/4938484
 
 
-Multi-sample de novo assembly and variant calling using de bruijn graphs.
+Multi-sample de novo assembly and variant calling using Linked de bruijn graphs.
 Variant calling with and without a reference genome. Between closely related
 samples or highly diverged ones. From bacterial to mammalian genomes. Minimal
 configuration. And it's free.
 
-Isaac Turner's experimental rewrite of cortex_var, to handle larger populations
-with better genome assembly. PhD supervisor: Prof Gil McVean. Collaborators: Zam Iqbal, Kiran Garimella. Based at the Wellcome Trust Centre for Human Genetics, University of Oxford.
+Isaac Turner's rewrite of *cortex_var*, to handle larger populations
+with better genome assembly, as a set of modular commands. PhD supervisor: Prof Gil McVean. Collaborators: Zam Iqbal, Kiran Garimella. Based at the Wellcome Trust Centre for Human Genetics, University of Oxford.
 
 17 March 2017
 
