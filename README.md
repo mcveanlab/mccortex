@@ -14,7 +14,7 @@ configuration. And it's free.
 Isaac Turner's rewrite of *cortex_var*, to handle larger populations
 with better genome assembly, as a set of modular commands. PhD supervisor: Prof Gil McVean. Collaborators: Zam Iqbal, Kiran Garimella. Based at the Wellcome Trust Centre for Human Genetics, University of Oxford.
 
-17 March 2017
+27 May 2018
 
 Branch         | Status
 ---------------|--------
@@ -88,7 +88,7 @@ Run the job file:
     make -f job.k31.k61.mk CTXDIR=~/mccortex MEM=70GB NTHREADS=8 \
                            JOINT_CALLING=yes USE_LINKS=no brk-geno-vcf
 
-For a human, running time will be about 8 hours for a single sample and use about 70 of RAM. For small numbers of similar samples, peak memory usage will remain the same as a single sample, and should increase roughly logarithmically with the number of samples.
+For a human genome, running time will be about 8 hours for a single sample and use about 70GB RAM. For small numbers of similar samples, peak memory usage will remain the same as a single sample, and should increase roughly logarithmically with the number of samples.
 
 Job finished? Your results are in: `mc_calls/vcfs/breakpoints.joint.plain.k31.k61.geno.vcf.gz`.
 
