@@ -172,12 +172,12 @@ static void print_breakpoint_stats(const DecompBreakpointStats *stats)
 }
 
 
-static bcf_hdr_t* make_vcf_hdr(cJSON *json, const char *in_path,
+static bcf_hdr_t* make_vcf_hdr(cJSON *jsonhdr, const char *in_path,
                                bool is_breakpoint, size_t kmer_size,
                                char const*const* ref_paths, size_t nref_paths,
                                read_t *chroms, size_t nchroms)
 {
-  ctx_assert(json != NULL);
+  ctx_assert(jsonhdr != NULL);
 
   StrBuf hdrbuf;
   strbuf_alloc(&hdrbuf, 1024);
@@ -191,7 +191,7 @@ static bcf_hdr_t* make_vcf_hdr(cJSON *json, const char *in_path,
   strbuf_append_str(&hdrbuf, "\n");
 
   // Print commands used to generate header
-  cJSON *commands = json_hdr_get(json, "commands", cJSON_Array, in_path);
+  cJSON *commands = json_hdr_get(jsonhdr, "commands", cJSON_Array, in_path);
   cJSON *command = commands->child;
 
   // Print this command
@@ -250,7 +250,7 @@ static bcf_hdr_t* make_vcf_hdr(cJSON *json, const char *in_path,
   if(is_breakpoint)
   {
     // Print a column for each sample
-    cJSON *graph_json   = json_hdr_get(json,       "graph",   cJSON_Object, in_path);
+    cJSON *graph_json   = json_hdr_get(jsonhdr,    "graph",   cJSON_Object, in_path);
     cJSON *colours_json = json_hdr_get(graph_json, "colours", cJSON_Array,  in_path);
     cJSON *colour_json  = colours_json->child;
     if(colour_json == NULL) die("Missing colours");
@@ -275,14 +275,14 @@ static bcf_hdr_t* make_vcf_hdr(cJSON *json, const char *in_path,
 
 // Check contig entries match reference
 // We check that these match the reference just loaded
-static void brkpnt_check_refs_match(cJSON *json,
+static void brkpnt_check_refs_match(cJSON *jsonhdr,
                                     const ChromHash *genome,
                                     const char *path)
 {
-  cJSON *version = json_hdr_get(json, "format_version", cJSON_Number, path);
+  cJSON *version = json_hdr_get(jsonhdr, "format_version", cJSON_Number, path);
   if(version->valueint <= 2) return;
 
-  cJSON *command = json_hdr_get_curr_cmd(json, path);
+  cJSON *command = json_hdr_get_curr_cmd(jsonhdr, path);
   cJSON *brkpnts = json_hdr_get(command, "breakpoints", cJSON_Object, path);
   cJSON *contigs = json_hdr_get(brkpnts, "contigs",     cJSON_Array,  path);
   cJSON *contig;
@@ -357,8 +357,8 @@ int ctx_calls2vcf(int argc, char **argv)
       case 'f': cmd_check(!futil_get_force(), cmd); futil_set_force(true); break;
       case 'F': cmd_check(!sam_path,cmd); sam_path = optarg; break;
       case 'Q': cmd_check(min_mapq < 0,cmd); min_mapq = cmd_uint32(cmd, optarg); break;
-      case 'A': cmd_check(max_align_len  < 0,cmd); max_align_len  = cmd_uint32(cmd, optarg); break;
-      case 'L': cmd_check(max_allele_len < 0,cmd); max_allele_len = cmd_uint32(cmd, optarg); break;
+      case 'A': cmd_check(max_align_len  < 0,cmd); max_align_len  = (int)cmd_uint32(cmd, optarg); break;
+      case 'L': cmd_check(max_allele_len < 0,cmd); max_allele_len = (int)cmd_uint32(cmd, optarg); break;
       case 'm': nwmatch = cmd_int32(cmd, optarg); break;
       case 'M': nwmismatch = cmd_int32(cmd, optarg); break;
       case 'g': nwgapopen = cmd_int32(cmd, optarg); break;
@@ -386,14 +386,14 @@ int ctx_calls2vcf(int argc, char **argv)
   gzFile gzin = futil_gzopen(in_path, "r");
 
   // Read call file header
-  cJSON *json = json_hdr_load(gzin, in_path);
+  cJSON *jsonhdr = json_hdr_load(gzin, in_path);
 
   // Check we can handle the kmer size
-  kmer_size = json_hdr_get_kmer_size(json, in_path);
+  kmer_size = json_hdr_get_kmer_size(jsonhdr, in_path);
   db_graph_check_kmer_size(kmer_size, in_path);
 
   // Get format (bubble or breakpoint file)
-  cJSON *json_fmt = json_hdr_get(json, "file_format", cJSON_String, in_path);
+  cJSON *json_fmt = json_hdr_get(jsonhdr, "file_format", cJSON_String, in_path);
   if(strcmp(json_fmt->valuestring,"CtxBreakpoints") == 0) isbubble = false;
   else if(strcmp(json_fmt->valuestring,"CtxBubbles") == 0) isbubble = true;
   else die("Unknown format: '%s'", json_fmt->valuestring);
@@ -431,8 +431,8 @@ int ctx_calls2vcf(int argc, char **argv)
 
   // Output VCF has 0 samples if bubbles file, otherwise has N where N is
   // number of samples/colours in the breakpoint graph
-  size_t num_graph_samples = json_hdr_get_ncols(json, in_path);
-  size_t num_graph_nonref = json_hdr_get_nonref_ncols(json, in_path);
+  size_t num_graph_samples = json_hdr_get_ncols(jsonhdr, in_path);
+  size_t num_graph_nonref = json_hdr_get_nonref_ncols(jsonhdr, in_path);
 
   num_samples = 0;
   if(!isbubble) {
@@ -470,9 +470,9 @@ int ctx_calls2vcf(int argc, char **argv)
   for(i = 0; i < chroms.len; i++)
     for(s = chroms.b[i].seq.b; *s; s++) *s = toupper(*s);
 
-  if(!isbubble) brkpnt_check_refs_match(json, genome, in_path);
+  if(!isbubble) brkpnt_check_refs_match(jsonhdr, genome, in_path);
 
-  bcf_hdr_t *vcfhdr = make_vcf_hdr(json, in_path, !isbubble, kmer_size,
+  bcf_hdr_t *vcfhdr = make_vcf_hdr(jsonhdr, in_path, !isbubble, kmer_size,
                                    ref_paths, nref_paths,
                                    chroms.b, chroms.len);
 
@@ -555,7 +555,7 @@ int ctx_calls2vcf(int argc, char **argv)
   acall_destroy(call);
 
   // Finished - clean up
-  cJSON_Delete(json);
+  cJSON_Delete(jsonhdr);
   gzclose(gzin);
 
   bcf_hdr_destroy(vcfhdr);

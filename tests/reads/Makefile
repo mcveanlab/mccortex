@@ -89,6 +89,6 @@ $(OUTDIR):
 	mkdir -p $(OUTDIR)
 
 clean:
-	rm -rf $(TGTS) out
+	rm -rf $(TGTS) $(LOGS) out
 
 .PHONY: all clean

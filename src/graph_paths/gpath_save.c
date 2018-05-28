@@ -75,23 +75,24 @@ cJSON* gpath_save_mkhdr(const char *path,
   ctx_assert(gpset->ncols == db_graph->num_of_cols);
 
   // Construct cJSON
-  cJSON *json = cJSON_CreateObject();
+  cJSON *jsonhdr = cJSON_CreateObject();
 
-  cJSON_AddStringToObject(json, "file_format", "ctp");
-  cJSON_AddNumberToObject(json, "format_version", CTP_FORMAT_VERSION);
+  cJSON_AddStringToObject(jsonhdr, "file_format", "ctp");
+  cJSON_AddNumberToObject(jsonhdr, "format_version", CTP_FORMAT_VERSION);
 
   // Add standard cortex header info, including the command being run
-  json_hdr_make_std(json, path, hdrs, nhdrs, db_graph, hash_table_nkmers(&db_graph->ht));
+  json_hdr_make_std(jsonhdr, path, hdrs, nhdrs, db_graph,
+                    hash_table_nkmers(&db_graph->ht));
 
   // Get first command (this one), and command specific extra info
   if(cmdstr) {
-    cJSON *cmd = json_hdr_get_curr_cmd(json, path);
+    cJSON *cmd = json_hdr_get_curr_cmd(jsonhdr, path);
     cJSON_AddItemToObject(cmd, cmdstr, cmdhdr);
   }
 
   // Paths info
   cJSON *paths = cJSON_CreateObject();
-  cJSON_AddItemToObject(json, "paths", paths);
+  cJSON_AddItemToObject(jsonhdr, "paths", paths);
 
   // Add command specific header fields
   cJSON_AddNumberToObject(paths, "num_kmers_with_paths", gpstore->num_kmers_with_paths);
@@ -106,7 +107,7 @@ cJSON* gpath_save_mkhdr(const char *path,
   for(i = 0; i < ncols; i++)
     _gpath_save_contig_hist2json(json_hists, contig_hists[i].b, contig_hists[i].len);
 
-  return json;
+  return jsonhdr;
 }
 
 
@@ -306,10 +307,10 @@ void gpath_save(gzFile gzout, const char *path,
   status("  using %zu threads", nthreads);
 
   // Write header
-  cJSON *json = gpath_save_mkhdr(path, cmdstr, cmdhdr, hdrs, nhdrs,
-                                 contig_hists, ncols, db_graph);
-  json_hdr_gzprint(json, gzout);
-  cJSON_Delete(json);
+  cJSON *jsonhdr = gpath_save_mkhdr(path, cmdstr, cmdhdr, hdrs, nhdrs,
+                                    contig_hists, ncols, db_graph);
+  json_hdr_gzprint(jsonhdr, gzout);
+  cJSON_Delete(jsonhdr);
 
   // Print comments about the format
   gzputs(gzout, ctp_explanation_comment);

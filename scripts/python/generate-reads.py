@@ -31,41 +31,42 @@ def reverse_complement(s):
 mutate = {'a': "cgt", 'c': "agt", 'g': "act", 't': "acg", \
           'A': "CGT", 'C': "AGT", 'G': "ACT", 'T': "ACG"}
 
-def print_read(r,err=None):
-  if err is None: print(r)
+def print_read(r,idx,err=None):
+  hdr = ">r"+str(idx)+"\n"
+  if err is None: print(hdr+r)
   elif isinstance(err, list):
     e = random.choice(err) # match with a random read
     l = [ random.choice(mutate[c]) if random.random() < e[min(i,len(e)-1)] else c for i,c in enumerate(r) ]
-    print(''.join(l))
+    print(hdr+''.join(l))
   else:
     l = [ random.choice(mutate[c]) if random.random() < err else c for c in r ]
-    print(''.join(l))
+    print(hdr+''.join(l))
 
 def perfect_se_cov(s,readlen,err=None):
   for i in range(len(s)-readlen+1):
-    print_read(s[i:i+readlen],err)
+    print_read(s[i:i+readlen],i+1,err)
 
 def perfect_pe_cov(s,readlen,fraglen,err=None):
   r = reverse_complement(s)
   for i in range(len(s)-fraglen+1):
-    print_read(s[i:i+readlen],err)
+    print_read(s[i:i+readlen],str(i+1)+"/1",err)
     j = i+fraglen-readlen
-    print_read(r[len(s)-j-readlen:len(s)-j],err)
+    print_read(r[len(s)-j-readlen:len(s)-j],str(i+1)+"/2",err)
 
 def poiss_se_cov(s,readlen,depth,err=None):
   nreads = int((len(s)*depth)/readlen)
-  for _ in range(nreads):
+  for idx in range(nreads):
     i = random.randint(0,len(s)-readlen)
-    print_read(s[i:i+readlen],err)
+    print_read(s[i:i+readlen],idx+1,err)
 
 def poiss_pe_cov(s,readlen,fraglen,depth,err=None):
   npairs = int((len(s)*depth)/(readlen*2))
   r = reverse_complement(s)
-  for _ in range(npairs):
+  for idx in range(npairs):
     i = random.randint(0,len(s)-fraglen)
-    print_read(s[i:i+readlen],err)
+    print_read(s[i:i+readlen],str(idx+1)+"/1",err)
     j = i+fraglen-readlen
-    print_read(r[len(s)-j-readlen:len(s)-j],err)
+    print_read(r[len(s)-j-readlen:len(s)-j],str(idx+1)+"/2",err)
 
 # returns a matrix m[r][i] = error prob of the i-th position of the r-th read
 def load_err_profile(file):
@@ -82,7 +83,8 @@ def main(argv):
   seed = random.randrange((1<<32)-1)
   depth = 0 # <= 0 -> perfect coverage
   try:
-    opts, args = getopt.getopt(argv[1:],"hp:r:d:e:s:",["help","paired=","readlen=","depth=","err=","seed="])
+    opts, args = getopt.getopt(argv[1:],"hp:r:d:e:s:",
+                               ["help","paired=","readlen=","depth=","err=","seed="])
   except getopt.GetoptError: usage(argv)
   for opt, arg in opts:
     if opt == '-h': usage(argv)
@@ -106,7 +108,8 @@ def main(argv):
       usage("Bad option:",opt,arg)
   if len(args) > 0: usage(argv,"Unused args:"+str(args))
   if readlen is None: usage(argv,"Require -r,--readlen")
-  print("readlen:",readlen,"fraglen:",fraglen,"err:",err,"depth:",depth,"seed:",seed,file=sys.stderr)
+  print("[generate-reads.py] readlen:",readlen,"fraglen:",fraglen,
+        "err:",err,"depth:",depth,"seed:",seed,file=sys.stderr)
   # read input
   s = input().strip()
   paired = (fraglen is not None)

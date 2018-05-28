@@ -17,8 +17,8 @@ static void run_subgraph(dBGraph *graph, uint8_t *mask,
                     &seq, &len, 1);
 
   TASSERT2(hash_table_nkmers(&graph->ht) == expt_nkmers,
-           "expected %zu kmers, got %llu; dist %zu invert: %s",
-           expt_nkmers, hash_table_nkmers(&graph->ht),
+           "expected %zu kmers, got %zu; dist %zu invert: %s",
+           expt_nkmers, (size_t)hash_table_nkmers(&graph->ht),
            dist, invert ? "yes" : "no");
 }
 
@@ -51,7 +51,7 @@ static void simple_subgraph_test()
 
   _tests_add_to_graph(&graph, graphseq, 0);
   TASSERT2(hash_table_nkmers(&graph.ht) == 1000-19+1,
-           "%llu kmers", hash_table_nkmers(&graph.ht));
+           "%zu kmers", (size_t)hash_table_nkmers(&graph.ht));
 
   // Pull out 10, 9, ... 0 bases around 2 kmers: GAGGTGGGTCCGCCTTGCGGt
   size_t dist;

@@ -4,7 +4,7 @@ SHELL=/bin/bash
 # make all      <- compile all libraries (deps + analysis)
 # make clean    <- clean all libraries
 
-CORE=xxHash htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib carrays misc
+CORE=htslib string_buffer bit_array seq_file seq-align msg-pool sort_r madcrowlib carrays misc
 OTHER=bcftools samtools bwa bfc readsim bioinf-perl maximal_substrs vcf-slim
 
 ALLTGTS=$(CORE) $(OTHER)
@@ -20,11 +20,12 @@ all: core other
 #
 # Build
 #
-xxHash: xxHash/Makefile
-	cd xxHash && $(MAKE)
+# xxHash: xxHash/Makefile
+# 	cd xxHash && $(MAKE)
 
 htslib: htslib/Makefile
-	cd htslib && $(MAKE)
+	# Run configure if config makefile not created
+	cd htslib && ( if ! [ -f config.mk ]; then autoreconf && ./configure --disable-lzma --disable-bz2 --disable-libcurl; fi; $(MAKE) -e )
 
 bcftools: htslib bcftools/Makefile
 	cd bcftools && $(MAKE)
@@ -95,7 +96,7 @@ test:
 # Clean
 #
 clean:
-	cd xxHash && $(MAKE) clean
+	# cd xxHash && $(MAKE) clean
 	cd htslib && $(MAKE) clean
 	cd bcftools && $(MAKE) clean
 	cd samtools && $(MAKE) clean

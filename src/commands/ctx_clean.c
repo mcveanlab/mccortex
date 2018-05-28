@@ -13,7 +13,7 @@ const char clean_usage[] =
 "usage: "CMD" clean [options] <in.ctx> [in2.ctx ...]\n"
 "\n"
 "  Clean a cortex graph. Joins graphs first, if multiple inputs given.\n"
-"  If neither -T or -U specified, just saves output statistics.\n"
+"  If output graph file is not specified just saves output statistics.\n"
 "  If given a multisample graph, cleans each sample against the merged population.\n"
 "\n"
 "  -h, --help               This help message\n"
@@ -125,6 +125,7 @@ static size_t ctx_max_cols(struct MemArgs memargs, uint64_t ctx_max_kmers,
 
   ncols = (memargs.mem_to_use*8 - bits_per_kmer*kmers_in_hash) /
           (per_col_bits*kmers_in_hash);
+  ncols = MAX2(ncols, 1);
 
   return MIN2(ncols, file_ncols);
 }
@@ -175,7 +176,7 @@ int ctx_clean(int argc, char **argv)
       case 'S': cmd_check(!sort_kmers,cmd); sort_kmers = true; break;
       case 'U':
         cmd_check(unitig_min<0, cmd);
-        unitig_min = (optarg != NULL ? cmd_uint32(cmd, optarg) : -1);
+        unitig_min = (optarg != NULL ? (int)cmd_uint32(cmd, optarg) : -1);
         unitig_cleaning = true;
         break;
       case 'B': cmd_check(!fallback_thresh, cmd); fallback_thresh = cmd_uint32_nonzero(cmd, optarg); break;

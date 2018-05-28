@@ -545,30 +545,30 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   ctx_assert(nseq_paths > 0);
 
   // Construct cJSON
-  cJSON *json = cJSON_CreateObject();
+  cJSON *jsonhdr = cJSON_CreateObject();
 
-  cJSON_AddStringToObject(json, "file_format", "CtxBreakpoints");
-  cJSON_AddNumberToObject(json, "format_version", BREAKPOINT_FORMAT_VERSION);
+  cJSON_AddStringToObject(jsonhdr, "file_format", "CtxBreakpoints");
+  cJSON_AddNumberToObject(jsonhdr, "format_version", BREAKPOINT_FORMAT_VERSION);
 
   // Add standard cortex headers
-  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph,
+  json_hdr_make_std(jsonhdr, out_path, hdrs, nhdrs, db_graph,
                     hash_table_nkmers(&db_graph->ht));
 
   // Update reference colour
-  // json.graph.colours[ref_col]
-  cJSON *hdr_graph  = json_hdr_get(json,      "graph",   cJSON_Object, out_path);
+  // jsonhdr.graph.colours[ref_col]
+  cJSON *hdr_graph  = json_hdr_get(jsonhdr,   "graph",   cJSON_Object, out_path);
   cJSON *hdr_colour = json_hdr_get(hdr_graph, "colours", cJSON_Array,  out_path);
   cJSON *ref = cJSON_GetArrayItem(hdr_colour, ref_col);
   ctx_assert(ref != NULL);
   cJSON_AddTrueToObject(ref, "is_ref");
 
   // Add parameters used in bubble calling to the header
-  json_hdr_augment_cmd(json, "breakpoints", "min_ref_flank_kmers",
-                                            cJSON_CreateInt(min_ref_nkmers));
-  json_hdr_augment_cmd(json, "breakpoints", "max_ref_flank_kmers",
-                                            cJSON_CreateInt(max_ref_nkmers));
-  json_hdr_augment_cmd(json, "breakpoints", "load_ref_edges",
-                                            cJSON_CreateBool(load_ref_edges));
+  json_hdr_augment_cmd(jsonhdr, "breakpoints", "min_ref_flank_kmers",
+                       cJSON_CreateInt(min_ref_nkmers));
+  json_hdr_augment_cmd(jsonhdr, "breakpoints", "max_ref_flank_kmers",
+                       cJSON_CreateInt(max_ref_nkmers));
+  json_hdr_augment_cmd(jsonhdr, "breakpoints", "load_ref_edges",
+                       cJSON_CreateBool(load_ref_edges));
 
   // Add paths to reference files
   cJSON *ref_files = cJSON_CreateArray();
@@ -579,7 +579,7 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
     char *ref_path = realpath(seq_paths[i], abspath) ? abspath : seq_paths[i];
     cJSON_AddItemToArray(ref_files, cJSON_CreateString(ref_path));
   }
-  json_hdr_augment_cmd(json, "breakpoints", "ref_files", ref_files);
+  json_hdr_augment_cmd(jsonhdr, "breakpoints", "ref_files", ref_files);
 
   // List contigs
   cJSON *contigs = cJSON_CreateArray();
@@ -589,10 +589,10 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
     cJSON_AddNumberToObject(contig, "length", reads[i].seq.end);
     cJSON_AddItemToArray(contigs, contig);
   }
-  json_hdr_augment_cmd(json, "breakpoints", "contigs", contigs);
+  json_hdr_augment_cmd(jsonhdr, "breakpoints", "contigs", contigs);
 
   // Write header to file
-  json_hdr_gzprint(json, gzout);
+  json_hdr_gzprint(jsonhdr, gzout);
 
   // Print comments about the format
   gzputs(gzout, "\n");
@@ -608,7 +608,7 @@ static void breakpoints_print_header(gzFile gzout, const char *out_path,
   gzputs(gzout, "#   <offset> is the position in the sequence where ref starts agreeing\n");
   gzputs(gzout, "\n");
 
-  cJSON_Delete(json);
+  cJSON_Delete(jsonhdr);
 }
 
 void breakpoints_call(size_t nthreads, size_t ref_col,

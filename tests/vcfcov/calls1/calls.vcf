@@ -3,6 +3,7 @@
 ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
 ##reference=ref/ref.fa
 ##contig=<ID=ref,length=200>
+##contig=<ID=chr1,length=200>
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO	FORMAT
 ref	1	.	A	T	.	PASS	.	GT
 ref	1	.	A	T	.	PASS	.	GT

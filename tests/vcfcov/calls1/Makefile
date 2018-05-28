@@ -17,7 +17,7 @@ REF=../ref/ref.fa
 all: check
 
 clean:
-	rm -rf calls.cov.vcf lowmem.cov.vcf graph.k$(K).ctx
+	rm -rf calls.cov.vcf lowmem.cov.vcf graph.k$(K).ctx *.log
 
 calls.cov.vcf: $(REF) calls.vcf graph.k$(K).ctx
 	$(MCCORTEX) vcfcov -m 10M -o $@ -r $(REF) --high-mem calls.vcf graph.k$(K).ctx >& $@.log

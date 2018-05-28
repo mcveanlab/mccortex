@@ -2,11 +2,14 @@
 
 set -e
 
-# The COVERITY_SCAN_BRANCH environment variable will be set to 1 when the
-# Coverity Scan addon is in operation
 # Only run if we are not doing Coverity Scan analysis
-if [ "${COVERITY_SCAN_BRANCH}" != 1 ]
+# The COVERITY_SCAN_BRANCH environment variable is not set until AFTER install
+# step has run, so we do a check on which git branch we have
+if [ $(git rev-parse --abbrev-ref HEAD) != "coverity_scan" ]
 then
+
+  # Compile third party code
+  cd libs && make && cd ..
 
   # Set up cpanm, install JSON perl package
   # Using default ~/perl5 local directory
@@ -18,8 +21,5 @@ then
   # eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"
   echo '[ $SHLVL -eq 1 ] && eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"' >> ~/.bashrc
   echo '[ $SHLVL -eq 1 ] && eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"' >> ~/.profile
-
-  # Compile third party code
-  cd libs && make && cd ..
 
 fi

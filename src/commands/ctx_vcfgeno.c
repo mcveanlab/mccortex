@@ -112,18 +112,19 @@ static void math_calcs_destroy() {
 }
 
 #define lnfac(x) ((x) < N_LFAC ? lnfac_table[x] : lgamma((x)+1))
+#define flnfac(x) lnfac((uint64_t)((x)+0.5))
 
 // logerr = log(seq_err)
-static double llk_hom(uint64_t covg1, uint64_t covg2, double theta1, double logerr)
+static double llk_hom(double covg1, double covg2, double theta1, double logerr)
 {
   double logtheta1 = log(theta1); // log(err*theta) = log(err)+log(theta)
-  return covg1 * logtheta1 - theta1 - lnfac(covg1) + covg2 * (logerr + logtheta1);
+  return covg1 * logtheta1 - theta1 - flnfac(covg1) + covg2 * (logerr + logtheta1);
 }
 
-static double llk_het(uint64_t covg1, uint64_t covg2, double theta1, double theta2)
+static double llk_het(double covg1, double covg2, double theta1, double theta2)
 {
-  return covg1 * log(theta1/2) - theta1/2 - lnfac(covg1) +
-         covg2 * log(theta2/2) - theta2/2 - lnfac(covg2);
+  return covg1 * log(theta1/2.0) - theta1/2.0 - flnfac(covg1) +
+         covg2 * log(theta2/2.0) - theta2/2.0 - flnfac(covg2);
 }
 
 // TODO: update for ploidy > 2, nalts > 2
@@ -196,15 +197,15 @@ static void genotype_sample_biallelic(bcf1_t *v, size_t sampleid,
     // theta1 is expected number of reads arriving on ref allele
     // theta2 is expected number of reads arriving on alt allele
     double theta1, theta2;
-    uint64_t rkcov, akcov;
+    double rkcov, akcov;
     double llk[3]; // hom1, het, hom2
     int order[3] = {0,1,2};
 
     // convert kmer coverage to num. of reads arriving, est. read arrival rate
-    theta1 = kcovg * rlenk / readlenk;
-    theta2 = kcovg * alenk / readlenk;
-    rkcov = rcovgs[0] * rlenk / readlenk;
-    akcov = acovgs[0] * alenk / readlenk;
+    theta1 = (kcovg * rlenk) / readlenk;
+    theta2 = (kcovg * alenk) / readlenk;
+    rkcov = (double)(rcovgs[0] * rlenk) / readlenk;
+    akcov = (double)(acovgs[0] * alenk) / readlenk;
 
     // given: loc_b(x) = log_a(x) / log_a(b)
     // llk_*() return natural log, divide by ln(10)=M_LN10 to get in log10
@@ -213,9 +214,9 @@ static void genotype_sample_biallelic(bcf1_t *v, size_t sampleid,
     llk[1] = ploidy == 2 ? llk_het(rkcov, akcov, theta1, theta2) / M_LN10 : -DBL_MAX;
     llk[2] = llk_hom(akcov, rkcov, theta2, logerr) / M_LN10;
 
-    if(llk[order[0]] > llk[order[1]]) SWAP(order[0], order[1]);
-    if(llk[order[1]] > llk[order[2]]) SWAP(order[1], order[2]);
-    if(llk[order[0]] > llk[order[1]]) SWAP(order[0], order[1]);
+    if(llk[order[0]] >= llk[order[1]]) SWAP(order[0], order[1]);
+    if(llk[order[1]] >= llk[order[2]]) SWAP(order[1], order[2]);
+    if(llk[order[0]] >= llk[order[1]]) SWAP(order[0], order[1]);
 
     // if haploid: g0, if diploid: g0/g1
     uint32_t g0 = (order[2] == 2), g1 = (order[2] > 0);
@@ -611,7 +612,7 @@ int ctx_vcfgeno(int argc, char **argv)
   // Get read lengths from VCF header if not set
   size_t *hdr_readlens = ctx_calloc(nsamples, sizeof(hdr_readlens[0]));
   if(!readlens_from_hdr(vcfhdr, hdr_readlens, readlen_tag))
-    status("[vcfgeno] Note: vcfcov SAMPLE= headers not found for all samples");
+    warn("vcfcov SAMPLE= headers not found for all samples");
   if(!read_lens) read_lens = hdr_readlens;
   else {
     strbuf_reset(&tmpstr);
@@ -634,9 +635,9 @@ int ctx_vcfgeno(int argc, char **argv)
   // convert read lengths to kmers
   // leave unset (0) read lengths as zero
   // otherwise round up to 1
-  for(i = 0; i < nsamples; i++)
-    if(read_lens[i])
-      read_lens[i] = readklen(read_lens[i],kmer_size);
+  for(i = 0; i < nsamples; i++) {
+    read_lens[i] = read_lens[i] ? readklen(read_lens[i],kmer_size) : 1;
+  }
 
   // Reconstruct tags from kmersize
   sprintf(kcovgs_ref_tag, "K%zuR", kmer_size);

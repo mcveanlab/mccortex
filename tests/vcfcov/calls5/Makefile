@@ -19,7 +19,7 @@ alt.fa:
 ACTATGGCCAAAGAgCTAGGaTGTTTTTCGGCTCAAGACTCTATCCTGCGGACCGTTCCGCAGGCGTGCCCAGCACCAGGGTCCGTACATTAATACCGTCGCGACTTACTTATTAAGCGTAGGGCACAGCAATATTTCCGCTGGCCCTTACAACCTAGTTTGTCCATAGAGCCATCATAGG\n' > $@
 
 clean:
-	rm -rf calls.cov.vcf* lowmem.cov.vcf* wally.k$(K).ctx alt.fa
+	rm -rf calls.cov.vcf* lowmem.cov.vcf* wally.k$(K).ctx alt.fa *.log
 
 %.k$(K).ctx: $(REF) alt.fa
 	$(MCCORTEX) build -m 10M -k $(K) --sample $* -1 $(REF) -1 $(REF) -1 alt.fa -1 alt.fa  $@ >& $@.log

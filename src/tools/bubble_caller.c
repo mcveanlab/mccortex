@@ -101,25 +101,25 @@ static void bubble_caller_print_header(gzFile gzout, const char* out_path,
   size_t i;
 
   // Construct cJSON
-  cJSON *json = cJSON_CreateObject();
+  cJSON *jsonhdr = cJSON_CreateObject();
 
-  cJSON_AddStringToObject(json, "file_format", "CtxBubbles");
-  cJSON_AddNumberToObject(json, "format_version", BUBBLE_FORMAT_VERSION);
+  cJSON_AddStringToObject(jsonhdr, "file_format", "CtxBubbles");
+  cJSON_AddNumberToObject(jsonhdr, "format_version", BUBBLE_FORMAT_VERSION);
 
   // Add standard cortex headers
-  json_hdr_make_std(json, out_path, hdrs, nhdrs, db_graph,
+  json_hdr_make_std(jsonhdr, out_path, hdrs, nhdrs, db_graph,
                     hash_table_nkmers(&db_graph->ht));
 
   // Add parameters used in bubble calling to the header
-  json_hdr_augment_cmd(json, "bubbles", "max_flank_kmers",  cJSON_CreateInt(prefs->max_flank_len));
-  json_hdr_augment_cmd(json, "bubbles", "max_allele_kmers", cJSON_CreateInt(prefs->max_allele_len));
+  json_hdr_augment_cmd(jsonhdr, "bubbles", "max_flank_kmers",  cJSON_CreateInt(prefs->max_flank_len));
+  json_hdr_augment_cmd(jsonhdr, "bubbles", "max_allele_kmers", cJSON_CreateInt(prefs->max_allele_len));
   cJSON *haploids = cJSON_CreateArray();
   for(i = 0; i < prefs->nhaploid_cols; i++)
     cJSON_AddItemToArray(haploids, cJSON_CreateInt(prefs->haploid_cols[i]));
-  json_hdr_augment_cmd(json, "bubbles", "haploid_colours", haploids);
+  json_hdr_augment_cmd(jsonhdr, "bubbles", "haploid_colours", haploids);
 
   // Write header to file
-  json_hdr_gzprint(json, gzout);
+  json_hdr_gzprint(jsonhdr, gzout);
 
   // Print comments about the format
   gzputs(gzout, "\n");
@@ -130,7 +130,7 @@ static void bubble_caller_print_header(gzFile gzout, const char* out_path,
   gzputs(gzout, "# Comment lines begin with a # and are ignored, but must come after the header\n");
   gzputs(gzout, "\n");
 
-  cJSON_Delete(json);
+  cJSON_Delete(jsonhdr);
 }
 
 static void branch_to_str(const dBNode *nodes, size_t len, bool print_first_kmer,
@@ -274,7 +274,7 @@ void find_bubbles(BubbleCaller *caller, dBNode fork_node)
 
   // loop over alleles, then colours
   Colour colour, colours_loaded = db_graph->num_of_cols;
-  bool node_has_col[4];
+  bool node_has_col[4] = {false};
 
   uint32_t pathid;
 
