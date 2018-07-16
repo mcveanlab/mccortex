@@ -5,8 +5,8 @@
 #
 
 getpkg <- function(pkg) {
-  if(!require(pkg,character.only=TRUE)) {
-    install.packages(pkg,dep=TRUE) # optionally set repos=....
+  if(!require(pkg, character.only=TRUE)) {
+    install.packages(pkg, dep=TRUE, repos='http://cran.rstudio.com/')
   }
 }
 

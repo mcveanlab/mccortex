@@ -345,14 +345,14 @@ BRK_REF_KMERS=10
 # Command arguments
 BUILD_ARGS=$(SEQ_PREFS) --keep-pcr
 KMER_CLEANING_ARGS=--fallback 2 -T -U
-POP_BUBBLES_ARGS=--max-diff 50 --max-covg 5
+POP_BUBBLES_ARGS=--max-len ' . (max(@kmers) + 10) . '
 THREAD_ARGS=$(SEQ_PREFS) --min-frag-len $(MIN_FRAG_LEN) --max-frag-len $(MAX_FRAG_LEN) --one-way --gap-diff-const 5 --gap-diff-coeff 0.1
 LINK_CLEANING_ARGS=--limit 5000  --max-dist 250 --max-covg 250
 BREAKPOINTS_ARGS=--minref $(BRK_REF_KMERS) --maxref $(MAX_BRANCH_LEN)
 BUBBLES_ARGS=--max-allele $(MAX_BRANCH_LEN) --max-flank 1000
 CALL2VCF_ARGS=--max-align $(MAX_BRANCH_LEN) --max-allele 100
 CONTIG_ARGS=--no-missing-check --confid-step 0.99
-CONTIG_POP_ARGS=--confid-step 0.99
+CONTIG_POP_ARGS=--no-missing-check --confid-step 0.99
 VCFCOV_ARGS=--low-mem
 # VCFGENO_ARGS=--rm-cov --llk
 VCFGENO_ARGS=
@@ -438,7 +438,6 @@ for my $k (@kmers) {
   print "CLEAN_PE_LINKS_K$k=\$(RAW_PE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "CONTIGS_PLAIN_K$k=".join(' ', map {"$proj/k$k/contigs_plain/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
   print "CONTIGS_LINKS_K$k=".join(' ', map {"$proj/k$k/contigs_links/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
-  print "CONTIGS_POP_K$k=".join(' ', map {"$proj/k$k/contigs_links/$_->{'name'}.pop.rmdup.fa.gz"} @samples)."\n";
   print "\n";
 }
 
@@ -463,8 +462,11 @@ print "\telse\n";
     print "\t\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_1by1_links_vcf $union_bubble_1by1_links_vcf.csi") . "\n";
     print "\t\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_1by1_links_vcf $union_brkpnt_1by1_links_vcf.csi") . "\n";
 print "\tendif
-\tCONTIGS=".join(' ', map {"\$(CONTIGS_PLAIN_K$_)"}  @kmers)."
-else
+\tCONTIGS=".join(' ', map {"\$(CONTIGS_LINKS_K$_)"}  @kmers)."\n";
+  for my $k (@kmers) {
+    print "\tCONTIGS_POP_K$k=".join(' ', map {"$proj/k$k/contigs_links/$_->{'name'}.pop.rmdup.fa.gz"} @samples)."\n";
+  }
+print "else
 \tifdef JOINT\n";
     # plain+joint calling
     for my $k (@kmers) {
@@ -482,8 +484,11 @@ print "\telse\n";
     print "\t\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_1by1_plain_vcf $union_bubble_1by1_plain_vcf.csi") . "\n";
     print "\t\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_1by1_plain_vcf $union_brkpnt_1by1_plain_vcf.csi") . "\n";
 print "\tendif
-\tCONTIGS=".join(' ', map {"\$(CONTIGS_LINKS_K$_)"}  @kmers)."
-endif\n\n";
+\tCONTIGS=".join(' ', map {"\$(CONTIGS_PLAIN_K$_)"}  @kmers)."\n";
+for my $k (@kmers) {
+  print "\tCONTIGS_POP_K$k=".join(' ', map {"$proj/k$k/contigs_plain/$_->{'name'}.pop.rmdup.fa.gz"} @samples)."\n";
+}
+print "endif\n\n";
 
 print "RAW_GRAPHS=".join(' ', map {"\$(RAW_GRAPHS_K$_)"}  @kmers)."\n";
 print "CLEAN_GRAPHS=\$(RAW_GRAPHS:.raw.ctx=.clean.ctx)\n";
@@ -671,9 +676,7 @@ for my $k (@kmers) {
   print "# Generate individual graphs for sample assembly with high covg indiv.\n";
   print "# Clean and pop bubbles at k=$k\n";
   print "$proj/k$k/graphs/%.pop.raw.cov.csv: $proj/k$k/graphs/%.pop.clean.ctx\n";
-  print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
-  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.pop.raw.cov.csv -o \$@ \$< >& \$@.log\n";
-  print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.pop.clean.ctx\n";
+  print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.clean.ctx\n";
   print "\t$ctx popbubbles \$(CTX_ARGS) \$(POP_BUBBLES_ARGS) -o \$@ \$< >& \$@.log\n\n";
 
   # Clean graph files at k=$k
