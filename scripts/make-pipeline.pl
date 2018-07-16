@@ -438,7 +438,6 @@ for my $k (@kmers) {
   print "CLEAN_PE_LINKS_K$k=\$(RAW_PE_LINKS_K$k:.raw.ctp.gz=.clean.ctp.gz)\n";
   print "CONTIGS_PLAIN_K$k=".join(' ', map {"$proj/k$k/contigs_plain/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
   print "CONTIGS_LINKS_K$k=".join(' ', map {"$proj/k$k/contigs_links/$_->{'name'}.rmdup.fa.gz"} @samples)."\n";
-  print "CONTIGS_POP_K$k=".join(' ', map {"$proj/k$k/contigs_links/$_->{'name'}.pop.rmdup.fa.gz"} @samples)."\n";
   print "\n";
 }
 
@@ -463,8 +462,11 @@ print "\telse\n";
     print "\t\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_1by1_links_vcf $union_bubble_1by1_links_vcf.csi") . "\n";
     print "\t\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_1by1_links_vcf $union_brkpnt_1by1_links_vcf.csi") . "\n";
 print "\tendif
-\tCONTIGS=".join(' ', map {"\$(CONTIGS_LINKS_K$_)"}  @kmers)."
-else
+\tCONTIGS=".join(' ', map {"\$(CONTIGS_LINKS_K$_)"}  @kmers)."\n";
+  for my $k (@kmers) {
+    print "\tCONTIGS_POP_K$k=".join(' ', map {"$proj/k$k/contigs_links/$_->{'name'}.pop.rmdup.fa.gz"} @samples)."\n";
+  }
+print "else
 \tifdef JOINT\n";
     # plain+joint calling
     for my $k (@kmers) {
@@ -482,8 +484,11 @@ print "\telse\n";
     print "\t\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_1by1_plain_vcf $union_bubble_1by1_plain_vcf.csi") . "\n";
     print "\t\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_1by1_plain_vcf $union_brkpnt_1by1_plain_vcf.csi") . "\n";
 print "\tendif
-\tCONTIGS=".join(' ', map {"\$(CONTIGS_PLAIN_K$_)"}  @kmers)."
-endif\n\n";
+\tCONTIGS=".join(' ', map {"\$(CONTIGS_PLAIN_K$_)"}  @kmers)."\n";
+for my $k (@kmers) {
+  print "\tCONTIGS_POP_K$k=".join(' ', map {"$proj/k$k/contigs_plain/$_->{'name'}.pop.rmdup.fa.gz"} @samples)."\n";
+}
+print "endif\n\n";
 
 print "RAW_GRAPHS=".join(' ', map {"\$(RAW_GRAPHS_K$_)"}  @kmers)."\n";
 print "CLEAN_GRAPHS=\$(RAW_GRAPHS:.raw.ctx=.clean.ctx)\n";
