@@ -67,20 +67,27 @@ samples.txt:
 task.k$(K).mk: samples.txt
 	$(CTXPIPELINE) $(K) $(OUTDIR) $< > $@
 
-supernodes.k$(K).fa: task.k$(K).mk $(READS)
+unitigs.k$(K).fa: task.k$(K).mk $(READS)
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=1G graphs
-	$(CTX) supernodes -o $@ proj/k31/graphs/MissSample.clean.ctx >& $@.log
+	$(CTX) unitigs -o $@ proj/k31/graphs/MissSample.clean.ctx >& $@.log
 
-run-mccortex: task.k$(K).mk supernodes.k$(K).fa $(READS)
+run-mccortex: task.k$(K).mk unitigs.k$(K).fa $(READS)
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=1G contigs contigs-pop
-	gzip -cd  proj/k31/contigs/MissSample.rmdup.fa.gz | $(CONTIG_STATS) --genome 1M -
-	gzip -cd  proj/k31/contigs/MissSample.pop.rmdup.fa.gz | $(CONTIG_STATS) --genome 1M -
-	$(CONTIG_STATS) --genome 1M supernodes.k$(K).fa
+	$(CONTIG_STATS) --genome 1M unitigs.k$(K).fa
+	gzip -cd  proj/k31/contigs_links/MissSample.rmdup.fa.gz | $(CONTIG_STATS) --genome 1M -
+	gzip -cd  proj/k31/contigs_links/MissSample.pop.rmdup.fa.gz | $(CONTIG_STATS) --genome 1M -
+	dnacat -P diploid/chrom0.fa unitigs.k31.fa | ../../scripts/python/break-contigs-vs-truth.py 31 1> /dev/null 2> stats.unitigs.txt
+	dnacat -P diploid/chrom0.fa proj/k31/contigs_links/MissSample.rmdup.fa.gz | ../../scripts/python/break-contigs-vs-truth.py 31 1> /dev/null 2> stats.links.txt
+	dnacat -P diploid/chrom0.fa proj/k31/contigs_links/MissSample.pop.rmdup.fa.gz | ../../scripts/python/break-contigs-vs-truth.py 31 1> /dev/null 2> stats.links.pop.txt
+	@echo "-- stats.unitigs.txt" && cat stats.unitigs.txt
+	@echo "-- stats.links.txt" && cat stats.links.txt
+	@echo "-- stats.links.pop.txt" && cat stats.links.pop.txt
 
 $(DIRS):
 	mkdir -p $@
 
 clean:
-	rm -rf $(DIRS) $(OUTDIR) samples.txt task.k$(K).mk supernodes.k$(K).fa*
+	rm -rf $(DIRS) $(OUTDIR) samples.txt task.k$(K).mk unitigs.k$(K).fa*
+	rm -rf stats.{unitigs,links,links.pop}.txt
 
 .PHONY: all clean run-mccortex
