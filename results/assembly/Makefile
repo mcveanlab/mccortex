@@ -67,20 +67,20 @@ samples.txt:
 task.k$(K).mk: samples.txt
 	$(CTXPIPELINE) $(K) $(OUTDIR) $< > $@
 
-supernodes.k$(K).fa: task.k$(K).mk $(READS)
+unitigs.k$(K).fa: task.k$(K).mk $(READS)
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=1G graphs
-	$(CTX) supernodes -o $@ proj/k31/graphs/MissSample.clean.ctx >& $@.log
+	$(CTX) unitigs -o $@ proj/k31/graphs/MissSample.clean.ctx >& $@.log
 
-run-mccortex: task.k$(K).mk supernodes.k$(K).fa $(READS)
+run-mccortex: task.k$(K).mk unitigs.k$(K).fa $(READS)
 	$(MAKE) -f $< CTXDIR=$(CTXDIR) MEM=1G contigs contigs-pop
 	gzip -cd  proj/k31/contigs/MissSample.rmdup.fa.gz | $(CONTIG_STATS) --genome 1M -
 	gzip -cd  proj/k31/contigs/MissSample.pop.rmdup.fa.gz | $(CONTIG_STATS) --genome 1M -
-	$(CONTIG_STATS) --genome 1M supernodes.k$(K).fa
+	$(CONTIG_STATS) --genome 1M unitigs.k$(K).fa
 
 $(DIRS):
 	mkdir -p $@
 
 clean:
-	rm -rf $(DIRS) $(OUTDIR) samples.txt task.k$(K).mk supernodes.k$(K).fa*
+	rm -rf $(DIRS) $(OUTDIR) samples.txt task.k$(K).mk unitigs.k$(K).fa*
 
 .PHONY: all clean run-mccortex
