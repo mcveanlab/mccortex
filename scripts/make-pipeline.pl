@@ -352,7 +352,7 @@ BREAKPOINTS_ARGS=--minref $(BRK_REF_KMERS) --maxref $(MAX_BRANCH_LEN)
 BUBBLES_ARGS=--max-allele $(MAX_BRANCH_LEN) --max-flank 1000
 CALL2VCF_ARGS=--max-align $(MAX_BRANCH_LEN) --max-allele 100
 CONTIG_ARGS=--no-missing-check --confid-step 0.99
-CONTIG_POP_ARGS=--confid-step 0.99
+CONTIG_POP_ARGS=--no-missing-check --confid-step 0.99
 VCFCOV_ARGS=--low-mem
 # VCFGENO_ARGS=--rm-cov --llk
 VCFGENO_ARGS=
@@ -463,7 +463,7 @@ print "\telse\n";
     print "\t\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_1by1_links_vcf $union_bubble_1by1_links_vcf.csi") . "\n";
     print "\t\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_1by1_links_vcf $union_brkpnt_1by1_links_vcf.csi") . "\n";
 print "\tendif
-\tCONTIGS=".join(' ', map {"\$(CONTIGS_PLAIN_K$_)"}  @kmers)."
+\tCONTIGS=".join(' ', map {"\$(CONTIGS_LINKS_K$_)"}  @kmers)."
 else
 \tifdef JOINT\n";
     # plain+joint calling
@@ -482,7 +482,7 @@ print "\telse\n";
     print "\t\tBUBBLES_UNION_VCFS=".refonly("$union_bubble_1by1_plain_vcf $union_bubble_1by1_plain_vcf.csi") . "\n";
     print "\t\tBREAKPOINTS_UNION_VCFS=".refonly("$union_brkpnt_1by1_plain_vcf $union_brkpnt_1by1_plain_vcf.csi") . "\n";
 print "\tendif
-\tCONTIGS=".join(' ', map {"\$(CONTIGS_LINKS_K$_)"}  @kmers)."
+\tCONTIGS=".join(' ', map {"\$(CONTIGS_PLAIN_K$_)"}  @kmers)."
 endif\n\n";
 
 print "RAW_GRAPHS=".join(' ', map {"\$(RAW_GRAPHS_K$_)"}  @kmers)."\n";
@@ -671,9 +671,7 @@ for my $k (@kmers) {
   print "# Generate individual graphs for sample assembly with high covg indiv.\n";
   print "# Clean and pop bubbles at k=$k\n";
   print "$proj/k$k/graphs/%.pop.raw.cov.csv: $proj/k$k/graphs/%.pop.clean.ctx\n";
-  print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.raw.ctx\n";
-  print "\t$ctx clean \$(CTX_ARGS) \$(KMER_CLEANING_ARGS) --covg-before $proj/k$k/graphs/\$*.pop.raw.cov.csv -o \$@ \$< >& \$@.log\n";
-  print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.pop.clean.ctx\n";
+  print "$proj/k$k/graphs/%.pop.clean.ctx: $proj/k$k/graphs/%.clean.ctx\n";
   print "\t$ctx popbubbles \$(CTX_ARGS) \$(POP_BUBBLES_ARGS) -o \$@ \$< >& \$@.log\n\n";
 
   # Clean graph files at k=$k
