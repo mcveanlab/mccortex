@@ -7,11 +7,11 @@ set -o xtrace
 #   git submodule update --remote
 # But that wouldn't run the tests...
 
-cd xxHash
-git checkout master
-git pull
-make
-cd ..
+# cd xxHash
+# git checkout master
+# git pull
+# make
+# cd ..
 
 cd htslib
 git checkout develop

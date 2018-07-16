@@ -8,6 +8,9 @@ set -e
 if [ $(git rev-parse --abbrev-ref HEAD) != "coverity_scan" ]
 then
 
+  # Compile third party code
+  cd libs && make && cd ..
+
   # Set up cpanm, install JSON perl package
   # Using default ~/perl5 local directory
   curl -L https://cpanmin.us | perl - App::cpanminus
@@ -18,8 +21,5 @@ then
   # eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"
   echo '[ $SHLVL -eq 1 ] && eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"' >> ~/.bashrc
   echo '[ $SHLVL -eq 1 ] && eval "$(perl -I$HOME/perl5/lib/perl5 -Mlocal::lib)"' >> ~/.profile
-
-  # Compile third party code
-  cd libs && make && cd ..
 
 fi

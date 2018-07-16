@@ -1,6 +1,11 @@
 McCortex: Population De Novo Assembly and Variant Calling
 ===============================================
 
+* _Integrating long-range connectivity information into de Bruijn graphs_
+  Turner I, Garimella K, Iqbal Z, McVean G (*Bioinformatics*; Advanced access 15 March 2018)
+  https://academic.oup.com/bioinformatics/advance-article/doi/10.1093/bioinformatics/bty157/4938484
+
+
 Multi-sample de novo assembly and variant calling using de bruijn graphs.
 Variant calling with and without a reference genome. Between closely related
 samples or highly diverged ones. From bacterial to mammalian genomes. Minimal
@@ -24,6 +29,15 @@ McCortex compiles with clang and gcc. Tested on Mac OS X and linux. Requires zli
 Download with:
 
     git clone --recursive https://github.com/mcveanlab/mccortex
+
+Install dependencies (for htslib) on mac:
+
+    brew update
+    brew install xz
+
+Or on linux:
+
+    sudo apt install liblzma-dev libbz2-dev
 
 To compile for a maximum kmer size of 31:
 
@@ -140,9 +154,6 @@ Type a command with no arguments to see usage. The following may also be useful:
 * Report a [bug / feature request](https://github.com/mcveanlab/mccortex/issues) on GitHub
 * Email me: Isaac Turner <turner.isaac@gmail.com>
 
-Live chat (email me to fix a time):
-* [HipChat](http://www.hipchat.com/gbF6Zf4k3) to instant message -- please email me first to arrange a time
-* [![Gitter https://gitter.im/mcveanlab/mccortex](https://badges.gitter.im/Join%20Chat.svg)](https://gitter.im/mcveanlab/mccortex?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
 
 Code And Contributing
 ---------------------
@@ -200,12 +211,16 @@ Used in testing:
 Citing
 ------
 
-'Cortex with low memory and read threading' is currently unpublished.  Please
-cite previous cortex_var papers:
+If you find McCortex useful, please cite our paper:
+
+* Integrating long-range connectivity information into de Bruijn graphs
+  Turner I, Garimella K, Iqbal Z, McVean G (Bioinformatics) (Advanced access 15 March 2018) https://academic.oup.com/bioinformatics/advance-article/doi/10.1093/bioinformatics/bty157/4938484
+
+Other Cortex papers:
 
 * De novo assembly and genotyping of variants using colored de Bruijn graphs,
-Iqbal(*), Caccamo(*), Turner, Flicek, McVean (Nature Genetics) (2012)
-(doi:10.1038/ng.1028) http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3272472
+  Iqbal(*), Caccamo(*), Turner, Flicek, McVean (Nature Genetics) (2012)
+  (doi:10.1038/ng.1028) http://www.ncbi.nlm.nih.gov/pmc/articles/PMC3272472
 * High-throughput microbial population genomics using the Cortex variation assembler,
-Iqbal, Turner, McVean (Bioinformatics) (Nov 2012)
-(doi:10.1093/bioinformatics/bts673) http://www.ncbi.nlm.nih.gov/pubmed/23172865
+  Iqbal, Turner, McVean (Bioinformatics) (Nov 2012)
+  (doi:10.1093/bioinformatics/bts673) http://www.ncbi.nlm.nih.gov/pubmed/23172865

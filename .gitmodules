@@ -54,11 +54,6 @@
 	path = libs/seq-align
 	url = https://github.com/noporpoise/seq-align.git
 	branch = master
-[submodule "libs/xxHash"]
-	path = libs/xxHash
-	url = https://github.com/Cyan4973/xxHash.git
-	ignore = dirty
-	branch = master
 [submodule "libs/biogrok"]
 	path = libs/biogrok
 	url = https://github.com/noporpoise/biogrok.git
