@@ -1,0 +1,341 @@
+echo "MissSample . "\
+"reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz,"\
+"reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz" > samples.txt
+../../scripts/make-pipeline.pl 31 proj samples.txt > task.k31.mk
+kmers: 31
+outdir: proj
+sample_file: samples.txt
+sample_names: MissSample
+Usage: make -f <script> [options] [target]
+  --always-make          List/run all commands even if dependencies exist.
+  --dry-run              Print commands but not run them
+  CTXDIR=<mccortex-dir>  McCortex directory e.g. CTXDIR=~/bin/mccortex
+  MEM=<mem-to-use>       max memory to use e.g. MEM=80G  => 80 gigabytes of RAM
+  NKMERS=<num-kmers>     capacity of the graph e.g. NKMERS=20M  => 20 million kmers
+  NTHREADS=<nthreads>    number of threads to use
+  USE_LINKS=<B>          <B> is 'yes' or 'no'
+  JOINT_CALLING=<B>      Call samples together or 1-by-1. <B> is 'yes' or 'no'
+  MATEPAIR=<MP>          MP can be FF,FR,RF,RR (default: FR)
+  MIN_FRAG_LEN=<L>       min. good fragment length bp (=read+gap+read)
+  MAX_FRAG_LEN=<L>       max. good fragment length bp (=read+gap+read)
+  FQ_CUTOFF=10           base quality cut off (0=off) [default: 10]
+  HP_CUTOFF=0            homopolymer run cut off (0=off) [default: 0]
+  BRK_REF_KMERS=N        num. of flanking ref kmers required by breakpoint caller
+  MAX_BRANCH_LEN=N       max distance to assemble and align to ref
+  MIN_MAPQ=Q             min. flank mapping quality required by bubble caller
+  PLOIDY=P               '1','2', or '-P SAMPLE[,..]:CHR[,..]:PLOIDY [-P ...]' (genotyping)
+  ERR=0.01,0.005         Per base seq error rate. Comma-sep list one per sample. (genotyping)
+mkdir -p reads
+mkdir -p diploid
+../../libs/bioinf-perl/sim_mutations/sim_mutations.pl --snps 1000 --indels 100 --invs 0 diploid 2 ../data/chr22/chr22_17M_18M.fa
+ref: 'chr22_17M_18M'
+Genome size: 1,000,000
+ snps: 1,000 / 1,000 (100.00%) generated
+ insertions: 56 / 50 (112.00%) generated
+ deletions: 44 / 50 (88.00%) generated
+ inversions: 0 / 0 generated
+cat diploid/genome0.fa | tr -d '-' | ../../libs/seq_file/bin/dnacat -u -F - > diploid/chrom0.fa
+../../libs/readsim/readsim -l 150 -r diploid/chrom0.fa -d 30 -e 0.01 reads/chrom0.30X
+Sampling from diploid/chrom0.fa
+ sequencing depth: 30.00
+ read length: 150
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: genome0[999901]
+ Genome size: 999901
+Sampling 99990 paired-end reads...
+Wrote 29997000 bases to: reads/chrom0.30X.1.fa.gz and reads/chrom0.30X.2.fa.gz
+../../libs/readsim/readsim -l 150 -r diploid/chrom0.fa -d 30 -e 0.01 reads/chrom0.30X.B
+Sampling from diploid/chrom0.fa
+ sequencing depth: 30.00
+ read length: 150
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: genome0[999901]
+ Genome size: 999901
+Sampling 99990 paired-end reads...
+Wrote 29997000 bases to: reads/chrom0.30X.B.1.fa.gz and reads/chrom0.30X.B.2.fa.gz
+cat diploid/genome1.fa | tr -d '-' | ../../libs/seq_file/bin/dnacat -u -F - > diploid/chrom1.fa
+../../libs/readsim/readsim -l 150 -r diploid/chrom1.fa -d 30 -e 0.01 reads/chrom1.30X
+Sampling from diploid/chrom1.fa
+ sequencing depth: 30.00
+ read length: 150
+ read pairs: yes
+ insert length: 250
+ insert stddev: 0.20 * insert = 50.00
+ seq error rate: 1.00%
+ Loaded contigs: genome1[999907]
+ Genome size: 999907
+Sampling 99990 paired-end reads...
+Wrote 29997000 bases to: reads/chrom1.30X.1.fa.gz and reads/chrom1.30X.2.fa.gz
+/Applications/Xcode.app/Contents/Developer/usr/bin/make -f task.k31.mk CTXDIR=../.. MEM=1G graphs
+mkdir -p proj/k31/graphs
+mkdir -p proj/k31/links
+mkdir -p proj/k31/contigs_plain
+mkdir -p proj/k31/contigs_links
+mkdir -p proj/k31/bubbles_plain
+mkdir -p proj/k31/bubbles_links
+mkdir -p proj/k31/breakpoints_plain
+mkdir -p proj/k31/breakpoints_links
+mkdir -p proj/k31/ref
+mkdir -p proj/k31/vcfcov
+mkdir -p proj/vcfs
+../../bin/mccortex31 build --fq-cutoff 10 --cut-hp 0 --matepair FR --keep-pcr -m 1G  -t 2 -k 31 --sample MissSample --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz proj/k31/graphs/MissSample.raw.ctx >& proj/k31/graphs/MissSample.raw.ctx.log
+../../bin/mccortex31 clean -m 1G  -t 2 --fallback 2 -T -U --covg-before proj/k31/graphs/MissSample.raw.cov.csv --covg-after proj/k31/graphs/MissSample.clean.cov.csv --len-before proj/k31/graphs/MissSample.raw.len.csv --len-after proj/k31/graphs/MissSample.clean.len.csv -o proj/k31/graphs/MissSample.clean.ctx proj/k31/graphs/MissSample.raw.ctx >& proj/k31/graphs/MissSample.clean.ctx.log
+../../bin/mccortex31 inferedges -m 1G  -t 2 proj/k31/graphs/MissSample.clean.ctx >& proj/k31/graphs/MissSample.inferedges.ctx.log
+../../bin/mccortex31 unitigs -o unitigs.k31.fa proj/k31/graphs/MissSample.clean.ctx >& unitigs.k31.fa.log
+/Applications/Xcode.app/Contents/Developer/usr/bin/make -f task.k31.mk CTXDIR=../.. MEM=1G POP_BUBBLES_ARGS="--max-len 41" contigs contigs-pop
+../../bin/mccortex31 thread -m 1G  -t 2 --fq-cutoff 10 --cut-hp 0 --matepair FR --min-frag-len 150 --max-frag-len 1000 --one-way --gap-diff-const 5 --gap-diff-coeff 0.1 --seq reads/chrom0.30X.1.fa.gz --seq reads/chrom0.30X.2.fa.gz --seq reads/chrom1.30X.1.fa.gz --seq reads/chrom1.30X.2.fa.gz -o proj/k31/links/MissSample.se.raw.ctp.gz proj/k31/graphs/MissSample.clean.ctx >& proj/k31/links/MissSample.se.raw.ctp.gz.log
+../../bin/mccortex31 links --limit 5000  --max-dist 250 --max-covg 250 --covg-hist proj/k31/links/MissSample.se.links.csv --threshold proj/k31/links/MissSample.se.thresh.txt proj/k31/links/MissSample.se.raw.ctp.gz >& proj/k31/links/MissSample.se.thresh.txt.log
+THRESH=`tail -1 proj/k31/links/MissSample.se.thresh.txt | grep -oE '[0-9]+$'`; \
+../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.se.clean.ctp.gz proj/k31/links/MissSample.se.raw.ctp.gz >& proj/k31/links/MissSample.se.clean.ctp.gz.log
+../../bin/mccortex31 thread -m 1G  -t 2 --fq-cutoff 10 --cut-hp 0 --matepair FR --min-frag-len 150 --max-frag-len 1000 --one-way --gap-diff-const 5 --gap-diff-coeff 0.1 -p proj/k31/links/MissSample.se.clean.ctp.gz --zero-paths --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz -o proj/k31/links/MissSample.pe.raw.ctp.gz proj/k31/graphs/MissSample.clean.ctx >& proj/k31/links/MissSample.pe.raw.ctp.gz.log
+../../bin/mccortex31 links --limit 5000  --max-dist 250 --max-covg 250 --covg-hist proj/k31/links/MissSample.pe.links.csv --threshold proj/k31/links/MissSample.pe.thresh.txt proj/k31/links/MissSample.pe.raw.ctp.gz >& proj/k31/links/MissSample.pe.thresh.txt.log
+THRESH=`tail -1 proj/k31/links/MissSample.pe.thresh.txt | grep -oE '[0-9]+$'`; \
+../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.pe.clean.ctp.gz proj/k31/links/MissSample.pe.raw.ctp.gz >& proj/k31/links/MissSample.pe.clean.ctp.gz.log
+( ../../bin/mccortex31 contigs -m 1G  -t 2 --no-missing-check --confid-step 0.99 -o - -p proj/k31/links/MissSample.pe.clean.ctp.gz proj/k31/graphs/MissSample.clean.ctx  | ../../libs/htslib/bgzip -c > proj/k31/contigs_links/MissSample.raw.fa.gz ) >& proj/k31/contigs_links/MissSample.raw.fa.gz.log
+( ../../bin/mccortex31 rmsubstr -m 1G  -t 2 -k 31 -o - proj/k31/contigs_links/MissSample.raw.fa.gz | ../../libs/htslib/bgzip -c > proj/k31/contigs_links/MissSample.rmdup.fa.gz ) >& proj/k31/contigs_links/MissSample.rmdup.fa.gz.log
+../../bin/mccortex31 popbubbles -m 1G  -t 2 --max-len 41 -o proj/k31/graphs/MissSample.pop.clean.ctx proj/k31/graphs/MissSample.clean.ctx >& proj/k31/graphs/MissSample.pop.clean.ctx.log
+../../bin/mccortex31 thread -m 1G  -t 2 --fq-cutoff 10 --cut-hp 0 --matepair FR --min-frag-len 150 --max-frag-len 1000 --one-way --gap-diff-const 5 --gap-diff-coeff 0.1 --seq reads/chrom0.30X.1.fa.gz --seq reads/chrom0.30X.2.fa.gz --seq reads/chrom1.30X.1.fa.gz --seq reads/chrom1.30X.2.fa.gz -o proj/k31/links/MissSample.pop.se.raw.ctp.gz proj/k31/graphs/MissSample.pop.clean.ctx >& proj/k31/links/MissSample.pop.se.raw.ctp.gz.log
+../../bin/mccortex31 links --limit 5000  --max-dist 250 --max-covg 250 --covg-hist proj/k31/links/MissSample.pop.se.links.csv --threshold proj/k31/links/MissSample.pop.se.thresh.txt proj/k31/links/MissSample.pop.se.raw.ctp.gz >& proj/k31/links/MissSample.pop.se.thresh.txt.log
+THRESH=`tail -1 proj/k31/links/MissSample.pop.se.thresh.txt | grep -oE '[0-9]+$'`; \
+../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.pop.se.clean.ctp.gz proj/k31/links/MissSample.pop.se.raw.ctp.gz >& proj/k31/links/MissSample.pop.se.clean.ctp.gz.log
+../../bin/mccortex31 thread -m 1G  -t 2 --fq-cutoff 10 --cut-hp 0 --matepair FR --min-frag-len 150 --max-frag-len 1000 --one-way --gap-diff-const 5 --gap-diff-coeff 0.1 -p proj/k31/links/MissSample.pop.se.clean.ctp.gz --zero-paths --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom1.30X.1.fa.gz:reads/chrom1.30X.2.fa.gz -o proj/k31/links/MissSample.pop.pe.raw.ctp.gz proj/k31/graphs/MissSample.pop.clean.ctx >& proj/k31/links/MissSample.pop.pe.raw.ctp.gz.log
+../../bin/mccortex31 links --limit 5000  --max-dist 250 --max-covg 250 --covg-hist proj/k31/links/MissSample.pop.pe.links.csv --threshold proj/k31/links/MissSample.pop.pe.thresh.txt proj/k31/links/MissSample.pop.pe.raw.ctp.gz >& proj/k31/links/MissSample.pop.pe.thresh.txt.log
+THRESH=`tail -1 proj/k31/links/MissSample.pop.pe.thresh.txt | grep -oE '[0-9]+$'`; \
+../../bin/mccortex31 links -c "$THRESH" -o proj/k31/links/MissSample.pop.pe.clean.ctp.gz proj/k31/links/MissSample.pop.pe.raw.ctp.gz >& proj/k31/links/MissSample.pop.pe.clean.ctp.gz.log
+( ../../bin/mccortex31 contigs -m 1G  -t 2 --no-missing-check --confid-step 0.99 -o - -p proj/k31/links/MissSample.pop.pe.clean.ctp.gz proj/k31/graphs/MissSample.pop.clean.ctx | ../../libs/htslib/bgzip -c > proj/k31/contigs_links/MissSample.pop.raw.fa.gz ) >& proj/k31/contigs_links/MissSample.pop.raw.fa.gz.log
+( ../../bin/mccortex31 rmsubstr -m 1G  -t 2 -k 31 -o - proj/k31/contigs_links/MissSample.pop.raw.fa.gz | ../../libs/htslib/bgzip -c > proj/k31/contigs_links/MissSample.pop.rmdup.fa.gz ) >& proj/k31/contigs_links/MissSample.pop.rmdup.fa.gz.log
+/Applications/Xcode.app/Contents/Developer/usr/bin/make -f task.k31.mk CTXDIR=../.. MEM=1G POP_BUBBLES_ARGS="--max-len 41" USE_LINKS=NO contigs contigs-pop
+( ../../bin/mccortex31 contigs -m 1G  -t 2 --no-missing-check --confid-step 0.99 -o - proj/k31/graphs/MissSample.clean.ctx  | ../../libs/htslib/bgzip -c > proj/k31/contigs_plain/MissSample.raw.fa.gz ) >& proj/k31/contigs_plain/MissSample.raw.fa.gz.log
+( ../../bin/mccortex31 rmsubstr -m 1G  -t 2 -k 31 -o - proj/k31/contigs_plain/MissSample.raw.fa.gz | ../../libs/htslib/bgzip -c > proj/k31/contigs_plain/MissSample.rmdup.fa.gz ) >& proj/k31/contigs_plain/MissSample.rmdup.fa.gz.log
+( ../../bin/mccortex31 contigs -m 1G  -t 2 --no-missing-check --confid-step 0.99 -o - proj/k31/graphs/MissSample.pop.clean.ctx  | ../../libs/htslib/bgzip -c > proj/k31/contigs_plain/MissSample.pop.raw.fa.gz ) >& proj/k31/contigs_plain/MissSample.pop.raw.fa.gz.log
+( ../../bin/mccortex31 rmsubstr -m 1G  -t 2 -k 31 -o - proj/k31/contigs_plain/MissSample.pop.raw.fa.gz | ../../libs/htslib/bgzip -c > proj/k31/contigs_plain/MissSample.pop.rmdup.fa.gz ) >& proj/k31/contigs_plain/MissSample.pop.rmdup.fa.gz.log
+../../libs/bioinf-perl/fastn_scripts/contig_stats.pl --genome 1M unitigs.k31.fa
+Genome size: 1000000
+[contig_stats.pl] contigs: ....... 11,927
+[contig_stats.pl]  length: .... 1,353,865
+[contig_stats.pl]     min: ........... 31
+[contig_stats.pl]     max: ........ 4,627
+[contig_stats.pl]    mean: .......... 113.5
+[contig_stats.pl]  median: ........... 44.0
+[contig_stats.pl]    mode: ........... 31
+[contig_stats.pl]     N50: .......... 378
+[contig_stats.pl]    NG50: .......... 694
+gzip -cd  proj/k31/contigs_plain/MissSample.rmdup.fa.gz | ../../libs/bioinf-perl/fastn_scripts/contig_stats.pl --genome 1M -
+Genome size: 1000000
+[contig_stats.pl] contigs: ........ 7,081
+[contig_stats.pl]  length: .... 2,470,688
+[contig_stats.pl]     min: ........... 31
+[contig_stats.pl]     max: ........ 6,229
+[contig_stats.pl]    mean: .......... 348.9
+[contig_stats.pl]  median: ........... 78.0
+[contig_stats.pl]    mode: ........... 31
+[contig_stats.pl]     N50: ........ 1,257
+[contig_stats.pl]    NG50: ........ 2,291
+gzip -cd  proj/k31/contigs_plain/MissSample.pop.rmdup.fa.gz | ../../libs/bioinf-perl/fastn_scripts/contig_stats.pl --genome 1M -
+Genome size: 1000000
+[contig_stats.pl] contigs: ........ 5,638
+[contig_stats.pl]  length: .... 1,304,043
+[contig_stats.pl]     min: ........... 31
+[contig_stats.pl]     max: ....... 12,888
+[contig_stats.pl]    mean: .......... 231.2
+[contig_stats.pl]  median: ........... 63.0
+[contig_stats.pl]    mode: ........... 31
+[contig_stats.pl]     N50: ........ 1,388
+[contig_stats.pl]    NG50: ........ 2,364
+gzip -cd  proj/k31/contigs_links/MissSample.rmdup.fa.gz | ../../libs/bioinf-perl/fastn_scripts/contig_stats.pl --genome 1M -
+Genome size: 1000000
+[contig_stats.pl] contigs: ........ 4,102
+[contig_stats.pl]  length: .... 3,076,166
+[contig_stats.pl]     min: ........... 31
+[contig_stats.pl]     max: ........ 6,463
+[contig_stats.pl]    mean: .......... 749.9
+[contig_stats.pl]  median: .......... 384.5
+[contig_stats.pl]    mode: ........... 35
+[contig_stats.pl]     N50: ........ 1,578
+[contig_stats.pl]    NG50: ........ 3,042
+gzip -cd  proj/k31/contigs_links/MissSample.pop.rmdup.fa.gz | ../../libs/bioinf-perl/fastn_scripts/contig_stats.pl --genome 1M -
+Genome size: 1000000
+[contig_stats.pl] contigs: ........ 2,250
+[contig_stats.pl]  length: .... 2,470,373
+[contig_stats.pl]     min: ........... 31
+[contig_stats.pl]     max: ....... 20,414
+[contig_stats.pl]    mean: ........ 1,097.9
+[contig_stats.pl]  median: .......... 221.0
+[contig_stats.pl]    mode: ........... 35
+[contig_stats.pl]     N50: ........ 3,815
+[contig_stats.pl]    NG50: ........ 9,115
+dnacat -P diploid/chrom0.fa unitigs.k31.fa | ../../scripts/python/break-contigs-vs-truth.py 31 1> /dev/null 2> stats.unitigs.txt
+dnacat -P diploid/chrom0.fa proj/k31/contigs_plain/MissSample.rmdup.fa.gz | ../../scripts/python/break-contigs-vs-truth.py 31 1> /dev/null 2> stats.plain.txt
+dnacat -P diploid/chrom0.fa proj/k31/contigs_plain/MissSample.pop.rmdup.fa.gz | ../../scripts/python/break-contigs-vs-truth.py 31 1> /dev/null 2> stats.plain.pop.txt
+dnacat -P diploid/chrom0.fa proj/k31/contigs_links/MissSample.rmdup.fa.gz | ../../scripts/python/break-contigs-vs-truth.py 31 1> /dev/null 2> stats.links.txt
+dnacat -P diploid/chrom0.fa proj/k31/contigs_links/MissSample.pop.rmdup.fa.gz | ../../scripts/python/break-contigs-vs-truth.py 31 1> /dev/null 2> stats.links.pop.txt
+-- stats.unitigs.txt
+k: 31 path: -
+contigs_read: 11927
+contigs_printed: 10768
+assembly_errors: 0
+nomatch_contigs: 1159
+num_uniq_ref_segs: 26625
+reflen: 999901
+NG50: 694
+-- stats.plain.txt
+k: 31 path: -
+contigs_read: 7081
+contigs_printed: 7164
+assembly_errors: 118
+nomatch_contigs: 35
+num_uniq_ref_segs: 8586
+reflen: 999901
+NG50: 1538
+-- stats.plain.pop.txt
+k: 31 path: -
+contigs_read: 5638
+contigs_printed: 5691
+assembly_errors: 88
+nomatch_contigs: 35
+num_uniq_ref_segs: 8080
+reflen: 999901
+NG50: 1577
+-- stats.links.txt
+k: 31 path: -
+contigs_read: 4102
+contigs_printed: 4711
+assembly_errors: 644
+nomatch_contigs: 35
+num_uniq_ref_segs: 3933
+reflen: 999901
+NG50: 2099
+-- stats.links.pop.txt
+k: 31 path: -
+contigs_read: 2250
+contigs_printed: 2872
+assembly_errors: 657
+nomatch_contigs: 35
+num_uniq_ref_segs: 2782
+reflen: 999901
+NG50: 3899
+echo "MissSample . "\
+"reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz,"\
+"reads/chrom0.30X.B.1.fa.gz:reads/chrom0.30X.B.2.fa.gz" > haploid_samples.txt
+../../scripts/make-pipeline.pl 31 happroj haploid_samples.txt > haploid.k31.mk
+kmers: 31
+outdir: happroj
+sample_file: haploid_samples.txt
+sample_names: MissSample
+Usage: make -f <script> [options] [target]
+  --always-make          List/run all commands even if dependencies exist.
+  --dry-run              Print commands but not run them
+  CTXDIR=<mccortex-dir>  McCortex directory e.g. CTXDIR=~/bin/mccortex
+  MEM=<mem-to-use>       max memory to use e.g. MEM=80G  => 80 gigabytes of RAM
+  NKMERS=<num-kmers>     capacity of the graph e.g. NKMERS=20M  => 20 million kmers
+  NTHREADS=<nthreads>    number of threads to use
+  USE_LINKS=<B>          <B> is 'yes' or 'no'
+  JOINT_CALLING=<B>      Call samples together or 1-by-1. <B> is 'yes' or 'no'
+  MATEPAIR=<MP>          MP can be FF,FR,RF,RR (default: FR)
+  MIN_FRAG_LEN=<L>       min. good fragment length bp (=read+gap+read)
+  MAX_FRAG_LEN=<L>       max. good fragment length bp (=read+gap+read)
+  FQ_CUTOFF=10           base quality cut off (0=off) [default: 10]
+  HP_CUTOFF=0            homopolymer run cut off (0=off) [default: 0]
+  BRK_REF_KMERS=N        num. of flanking ref kmers required by breakpoint caller
+  MAX_BRANCH_LEN=N       max distance to assemble and align to ref
+  MIN_MAPQ=Q             min. flank mapping quality required by bubble caller
+  PLOIDY=P               '1','2', or '-P SAMPLE[,..]:CHR[,..]:PLOIDY [-P ...]' (genotyping)
+  ERR=0.01,0.005         Per base seq error rate. Comma-sep list one per sample. (genotyping)
+/Applications/Xcode.app/Contents/Developer/usr/bin/make -f haploid.k31.mk CTXDIR=../.. MEM=1G contigs
+mkdir -p happroj/k31/graphs
+mkdir -p happroj/k31/links
+mkdir -p happroj/k31/contigs_plain
+mkdir -p happroj/k31/contigs_links
+mkdir -p happroj/k31/bubbles_plain
+mkdir -p happroj/k31/bubbles_links
+mkdir -p happroj/k31/breakpoints_plain
+mkdir -p happroj/k31/breakpoints_links
+mkdir -p happroj/k31/ref
+mkdir -p happroj/k31/vcfcov
+mkdir -p happroj/vcfs
+../../bin/mccortex31 build --fq-cutoff 10 --cut-hp 0 --matepair FR --keep-pcr -m 1G  -t 2 -k 31 --sample MissSample --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom0.30X.B.1.fa.gz:reads/chrom0.30X.B.2.fa.gz happroj/k31/graphs/MissSample.raw.ctx >& happroj/k31/graphs/MissSample.raw.ctx.log
+../../bin/mccortex31 clean -m 1G  -t 2 --fallback 2 -T -U --covg-before happroj/k31/graphs/MissSample.raw.cov.csv --covg-after happroj/k31/graphs/MissSample.clean.cov.csv --len-before happroj/k31/graphs/MissSample.raw.len.csv --len-after happroj/k31/graphs/MissSample.clean.len.csv -o happroj/k31/graphs/MissSample.clean.ctx happroj/k31/graphs/MissSample.raw.ctx >& happroj/k31/graphs/MissSample.clean.ctx.log
+../../bin/mccortex31 inferedges -m 1G  -t 2 happroj/k31/graphs/MissSample.clean.ctx >& happroj/k31/graphs/MissSample.inferedges.ctx.log
+../../bin/mccortex31 thread -m 1G  -t 2 --fq-cutoff 10 --cut-hp 0 --matepair FR --min-frag-len 150 --max-frag-len 1000 --one-way --gap-diff-const 5 --gap-diff-coeff 0.1 --seq reads/chrom0.30X.1.fa.gz --seq reads/chrom0.30X.2.fa.gz --seq reads/chrom0.30X.B.1.fa.gz --seq reads/chrom0.30X.B.2.fa.gz -o happroj/k31/links/MissSample.se.raw.ctp.gz happroj/k31/graphs/MissSample.clean.ctx >& happroj/k31/links/MissSample.se.raw.ctp.gz.log
+../../bin/mccortex31 links --limit 5000  --max-dist 250 --max-covg 250 --covg-hist happroj/k31/links/MissSample.se.links.csv --threshold happroj/k31/links/MissSample.se.thresh.txt happroj/k31/links/MissSample.se.raw.ctp.gz >& happroj/k31/links/MissSample.se.thresh.txt.log
+THRESH=`tail -1 happroj/k31/links/MissSample.se.thresh.txt | grep -oE '[0-9]+$'`; \
+../../bin/mccortex31 links -c "$THRESH" -o happroj/k31/links/MissSample.se.clean.ctp.gz happroj/k31/links/MissSample.se.raw.ctp.gz >& happroj/k31/links/MissSample.se.clean.ctp.gz.log
+../../bin/mccortex31 thread -m 1G  -t 2 --fq-cutoff 10 --cut-hp 0 --matepair FR --min-frag-len 150 --max-frag-len 1000 --one-way --gap-diff-const 5 --gap-diff-coeff 0.1 -p happroj/k31/links/MissSample.se.clean.ctp.gz --zero-paths --seq2 reads/chrom0.30X.1.fa.gz:reads/chrom0.30X.2.fa.gz --seq2 reads/chrom0.30X.B.1.fa.gz:reads/chrom0.30X.B.2.fa.gz -o happroj/k31/links/MissSample.pe.raw.ctp.gz happroj/k31/graphs/MissSample.clean.ctx >& happroj/k31/links/MissSample.pe.raw.ctp.gz.log
+../../bin/mccortex31 links --limit 5000  --max-dist 250 --max-covg 250 --covg-hist happroj/k31/links/MissSample.pe.links.csv --threshold happroj/k31/links/MissSample.pe.thresh.txt happroj/k31/links/MissSample.pe.raw.ctp.gz >& happroj/k31/links/MissSample.pe.thresh.txt.log
+THRESH=`tail -1 happroj/k31/links/MissSample.pe.thresh.txt | grep -oE '[0-9]+$'`; \
+../../bin/mccortex31 links -c "$THRESH" -o happroj/k31/links/MissSample.pe.clean.ctp.gz happroj/k31/links/MissSample.pe.raw.ctp.gz >& happroj/k31/links/MissSample.pe.clean.ctp.gz.log
+( ../../bin/mccortex31 contigs -m 1G  -t 2 --no-missing-check --confid-step 0.99 -o - -p happroj/k31/links/MissSample.pe.clean.ctp.gz happroj/k31/graphs/MissSample.clean.ctx  | ../../libs/htslib/bgzip -c > happroj/k31/contigs_links/MissSample.raw.fa.gz ) >& happroj/k31/contigs_links/MissSample.raw.fa.gz.log
+( ../../bin/mccortex31 rmsubstr -m 1G  -t 2 -k 31 -o - happroj/k31/contigs_links/MissSample.raw.fa.gz | ../../libs/htslib/bgzip -c > happroj/k31/contigs_links/MissSample.rmdup.fa.gz ) >& happroj/k31/contigs_links/MissSample.rmdup.fa.gz.log
+/Applications/Xcode.app/Contents/Developer/usr/bin/make -f haploid.k31.mk CTXDIR=../.. MEM=1G USE_LINKS=no unitigs contigs
+(../../bin/mccortex31 unitigs -m 1G  -t 2 happroj/k31/graphs/MissSample.clean.ctx | ../../libs/htslib/bgzip -c > happroj/k31/graphs/MissSample.clean.unitigs.fa.gz) 2> happroj/k31/graphs/MissSample.clean.unitigs.fa.gz.log
+( ../../bin/mccortex31 contigs -m 1G  -t 2 --no-missing-check --confid-step 0.99 -o - happroj/k31/graphs/MissSample.clean.ctx  | ../../libs/htslib/bgzip -c > happroj/k31/contigs_plain/MissSample.raw.fa.gz ) >& happroj/k31/contigs_plain/MissSample.raw.fa.gz.log
+( ../../bin/mccortex31 rmsubstr -m 1G  -t 2 -k 31 -o - happroj/k31/contigs_plain/MissSample.raw.fa.gz | ../../libs/htslib/bgzip -c > happroj/k31/contigs_plain/MissSample.rmdup.fa.gz ) >& happroj/k31/contigs_plain/MissSample.rmdup.fa.gz.log
+gzip -cd  happroj/k31/graphs/MissSample.clean.unitigs.fa.gz | ../../libs/bioinf-perl/fastn_scripts/contig_stats.pl --genome 1M -
+Genome size: 1000000
+[contig_stats.pl] contigs: ........ 8,639
+[contig_stats.pl]  length: .... 1,222,865
+[contig_stats.pl]     min: ........... 31
+[contig_stats.pl]     max: ....... 12,861
+[contig_stats.pl]    mean: .......... 141.5
+[contig_stats.pl]  median: ........... 35.0
+[contig_stats.pl]    mode: ........... 31
+[contig_stats.pl]     N50: ........ 1,100
+[contig_stats.pl]    NG50: ........ 1,629
+gzip -cd  happroj/k31/contigs_plain/MissSample.rmdup.fa.gz | ../../libs/bioinf-perl/fastn_scripts/contig_stats.pl --genome 1M -
+Genome size: 1000000
+[contig_stats.pl] contigs: ........ 5,387
+[contig_stats.pl]  length: .... 1,156,944
+[contig_stats.pl]     min: ........... 31
+[contig_stats.pl]     max: ....... 12,884
+[contig_stats.pl]    mean: .......... 214.7
+[contig_stats.pl]  median: ........... 63.0
+[contig_stats.pl]    mode: ........... 31
+[contig_stats.pl]     N50: ........ 1,273
+[contig_stats.pl]    NG50: ........ 1,663
+gzip -cd  happroj/k31/contigs_links/MissSample.rmdup.fa.gz | ../../libs/bioinf-perl/fastn_scripts/contig_stats.pl --genome 1M -
+Genome size: 1000000
+[contig_stats.pl] contigs: ........ 2,852
+[contig_stats.pl]  length: .... 2,163,726
+[contig_stats.pl]     min: ........... 31
+[contig_stats.pl]     max: ....... 26,304
+[contig_stats.pl]    mean: .......... 758.6
+[contig_stats.pl]  median: .......... 102.0
+[contig_stats.pl]    mode: ........... 39
+[contig_stats.pl]     N50: ........ 3,420
+[contig_stats.pl]    NG50: ........ 7,589
+dnacat -P diploid/chrom0.fa happroj/k31/graphs/MissSample.clean.unitigs.fa.gz | ../../scripts/python/break-contigs-vs-truth.py 31 1> /dev/null 2> stats.unitigs.hap.txt
+dnacat -P diploid/chrom0.fa happroj/k31/contigs_plain/MissSample.rmdup.fa.gz | ../../scripts/python/break-contigs-vs-truth.py 31 1> /dev/null 2> stats.plain.hap.txt
+dnacat -P diploid/chrom0.fa happroj/k31/contigs_links/MissSample.rmdup.fa.gz | ../../scripts/python/break-contigs-vs-truth.py 31 1> /dev/null 2> stats.links.hap.txt
+-- stats.unitigs.hap.txt
+k: 31 path: -
+contigs_read: 8639
+contigs_printed: 8601
+assembly_errors: 0
+nomatch_contigs: 38
+num_uniq_ref_segs: 24276
+reflen: 999901
+NG50: 1627
+-- stats.plain.hap.txt
+k: 31 path: -
+contigs_read: 5387
+contigs_printed: 5356
+assembly_errors: 0
+nomatch_contigs: 31
+num_uniq_ref_segs: 8108
+reflen: 999901
+NG50: 1633
+-- stats.links.hap.txt
+k: 31 path: -
+contigs_read: 2852
+contigs_printed: 3317
+assembly_errors: 496
+nomatch_contigs: 31
+num_uniq_ref_segs: 3868
+reflen: 999901
+NG50: 4418
