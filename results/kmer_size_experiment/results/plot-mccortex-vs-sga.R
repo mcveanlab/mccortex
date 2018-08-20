@@ -76,7 +76,8 @@ plot(1, type='n', bty="n", log="y", axes=F,
 points(jitter(a$K,jf), a$AssemblyErrors+1, type='b', lwd=lt, pch=pnts[3], col=cols[3], lty=1)
 points(jitter(b$K,jf), b$AssemblyErrors+1, type='b', lwd=lt, pch=pnts[4], col=cols[4], lty=1)
 axis(1, at=kmers)
-axis(2, at=c(1,2,11,51,101,201,501), labels=c(0,1,10,50,100,200,500), las=2)
+axis(2, at=c(1,2,11,51,101,201,501,1001,2001,4001),
+     labels=c(0,1,10,50,100,200,500,1000,2000,4000), las=2)
 
 par(xpd=TRUE)
 legend("topright", bty="n", inset=c(0.2,-0.15),

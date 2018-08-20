@@ -19,8 +19,8 @@ GENREADS=$(CTXDIR)/scripts/python/generate-reads.py
 COUNT_BAD_EDGES=python $(CTXDIR)/scripts/python/count-bad-edges.py
 TIME=/usr/bin/time -l
 
-# REF=$(CTXDIR)/results/data/chr22/chr22_17M_18M.fa
-REF=$(CTXDIR)/results/data/chr22/chr22_28M_29M.fa
+REF=$(CTXDIR)/results/data/chr22/chr22_17M_18M.fa
+# REF=$(CTXDIR)/results/data/chr22/chr22_28M_29M.fa
 PERFECT=data/perfect_cov
 STOCH=data/stoch_cov
 STOCHERR=data/stocherr_cov

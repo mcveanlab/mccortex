@@ -107,7 +107,7 @@ N50_ylim <- 100
 asm_ylim <- 5
 if(use_pe) {
   N50_ylim <- 150
-  asm_ylim <- 1000
+  asm_ylim <- 2000
 }
 
 xlabel = expression(italic('k'))

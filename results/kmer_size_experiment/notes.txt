@@ -5,6 +5,9 @@ generated if you have it installed (e.g. with `brew install science/sga`).
 Specify the absolue path to the reference FASTA:
 
     REF=../data/chr22/chr22_28M_29M.fa
+    # OR
+    REF=../data/chr22/chr22_17M_18M.fa
+    # Then convert to absolute path
     REF=$(cd "$(dirname "$REF")"; pwd)/$(basename "$REF")
 
 Sample reads and assemble with:
