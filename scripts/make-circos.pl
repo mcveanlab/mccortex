@@ -111,7 +111,7 @@ file  = insertions.txt
 # Deletions
 <plot>
 <<include r0r1.conf>>
-color = white,black_a5,black_a4,black_a3,black_a2,black_a1,black
+color = white,green_a5,green_a4,green_a3,green_a2,green_a1,green
 file  = deletions.txt
 # min = 0
 # max = 1000000000
@@ -421,7 +421,7 @@ sub make_data_files
   # light/dark blue/red
   # my @cols = qw(rdbu-10-div-2 rdbu-10-div-4 rdbu-10-div-7 rdbu-10-div-9);
   # purple/green Green is inversion
-  my @cols = qw(prgn-10-div-2 prgn-10-div-4 prgn-10-div-7 prgn-10-div-9);
+  # my @line_cols = qw(prgn-10-div-2 prgn-10-div-4 prgn-10-div-7 prgn-10-div-9);
 
   print "  Key: light/dark purple - Regular breakpoint\n";
   print "       light/dark green  - Inversion breakpoint\n";
@@ -466,8 +466,9 @@ sub make_data_files
       my $inversion = ($flank5p->{'strand'} ne $flank3p->{'strand'});
 
       # Two color scheme
-      if(!$inversion) { $lcol = "color=$cols[1]"; }
-      else { $lcol = "color=$cols[3]"; }
+      my @line_cols = qw(set1-5-qual-4 set1-5-qual-5);
+      if(!$inversion) { $lcol = "color=$line_cols[0]"; }
+      else { $lcol = "color=$line_cols[1]"; }
 
       # if($first_link && !$inversion) { $lcol = "color=$cols[0]"; }
       # if(!$first_link && !$inversion) { $lcol = "color=$cols[1]"; }
