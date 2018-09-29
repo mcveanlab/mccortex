@@ -81,7 +81,7 @@ $(DIRS):
 
 plot-circos: run-mccortex
 	gzip -fcd run_haploid/k$(K)/breakpoints/breakpoints.txt.gz | $(MKCIRCOS) circos-plot -
-	# cd circos-plot && $(CIRCOS)
+	cd circos-plot && $(CIRCOS)
 
 clean:
 	rm -rf $(DIRS) $(OUTDIR) circos-plot

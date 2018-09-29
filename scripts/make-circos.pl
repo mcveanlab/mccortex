@@ -95,8 +95,8 @@ stroke_thickness = 0
 <<include r0r1.conf>>
 color = white,red_a5,red_a4,red_a3,red_a2,red_a1,red
 file  = mnps.txt
-min = 0
-max = 1000000000
+# min = 0
+# max = 1000000000
 </plot>
 
 # Insertions
@@ -104,8 +104,8 @@ max = 1000000000
 <<include r0r1.conf>>
 color = white,blue_a5,blue_a4,blue_a3,blue_a2,blue_a1,blue
 file  = insertions.txt
-min = 0
-max = 1000000000
+# min = 0
+# max = 1000000000
 </plot>
 
 # Deletions
@@ -113,8 +113,8 @@ max = 1000000000
 <<include r0r1.conf>>
 color = white,black_a5,black_a4,black_a3,black_a2,black_a1,black
 file  = deletions.txt
-min = 0
-max = 1000000000
+# min = 0
+# max = 1000000000
 </plot>
 
 </plots>
@@ -246,7 +246,7 @@ sub log10 {
 
 sub main
 {
-  if(@_ < 1 || @_ > 2) { print_usage(); }
+  if(@_ != 2) { print_usage(); }
   my ($outdir,$file) = @_;
 
   # Input file
@@ -465,10 +465,14 @@ sub make_data_files
 
       my $inversion = ($flank5p->{'strand'} ne $flank3p->{'strand'});
 
-      if($first_link && !$inversion) { $lcol = "color=$cols[0]"; }
-      if(!$first_link && !$inversion) { $lcol = "color=$cols[1]"; }
-      if($first_link && $inversion) { $lcol = "color=$cols[2]"; }
-      if(!$first_link && $inversion) { $lcol = "color=$cols[3]"; }
+      # Two color scheme
+      if(!$inversion) { $lcol = "color=$cols[1]"; }
+      else { $lcol = "color=$cols[3]"; }
+
+      # if($first_link && !$inversion) { $lcol = "color=$cols[0]"; }
+      # if(!$first_link && !$inversion) { $lcol = "color=$cols[1]"; }
+      # if($first_link && $inversion) { $lcol = "color=$cols[2]"; }
+      # if(!$first_link && $inversion) { $lcol = "color=$cols[3]"; }
 
       # if($intrachr) {
       #   if($inversion) { $lcol = "color=red,z=1"; }
