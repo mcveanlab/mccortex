@@ -11,7 +11,7 @@ READSIM=$(CTXDIR)/libs/readsim/readsim
 DNACAT=$(CTXDIR)/libs/seq_file/bin/dnacat
 SIMBRK=$(CTXDIR)/libs/bioinf-perl/sim_mutations/sim_breakpoints.pl
 BLOCKS2BRK=$(CTXDIR)/libs/bioinf-perl/sim_mutations/block_to_brkpnts.pl
-CHKBRK=$(CTXDIR)/scripts/perl/check-breakpoints.pl
+CHKBRK=$(CTXDIR)/scripts/perl/breakpoints-check.pl
 MKCIRCOS=$(CTXDIR)/scripts/make-circos.pl
 CIRCOS=circos
 
@@ -81,7 +81,7 @@ $(DIRS):
 
 plot-circos: run-mccortex
 	gzip -fcd run_haploid/k$(K)/breakpoints/breakpoints.txt.gz | $(MKCIRCOS) circos-plot -
-	cd circos-plot && $(CIRCOS)
+	# cd circos-plot && $(CIRCOS)
 
 clean:
 	rm -rf $(DIRS) $(OUTDIR) circos-plot

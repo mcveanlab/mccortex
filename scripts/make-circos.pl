@@ -95,6 +95,8 @@ stroke_thickness = 0
 <<include r0r1.conf>>
 color = white,red_a5,red_a4,red_a3,red_a2,red_a1,red
 file  = mnps.txt
+min = 0
+max = 1000000000
 </plot>
 
 # Insertions
@@ -102,6 +104,8 @@ file  = mnps.txt
 <<include r0r1.conf>>
 color = white,blue_a5,blue_a4,blue_a3,blue_a2,blue_a1,blue
 file  = insertions.txt
+min = 0
+max = 1000000000
 </plot>
 
 # Deletions
@@ -109,6 +113,8 @@ file  = insertions.txt
 <<include r0r1.conf>>
 color = white,black_a5,black_a4,black_a3,black_a2,black_a1,black
 file  = deletions.txt
+min = 0
+max = 1000000000
 </plot>
 
 </plots>
@@ -253,7 +259,7 @@ sub main
   my ($bands_fh, $ticks_fh, $r0r1_fh);
 
   open($fh, $file) or die("Cannot read file $file");
-  my $cb = new CortexBreakpoints($fh);
+  my $cb = new McCortexBreakpoints($fh);
 
   # 0. Create output directory
   if($outdir eq "") {
@@ -294,7 +300,7 @@ sub main
 
   my $hdr_txt = $cb->{'_header'};
   my $hdr_json = decode_json($hdr_txt);
-  my $contigs_hdr = $hdr_json->{'breakpoints'}->{'contigs'};
+  my $contigs_hdr = $hdr_json->{'commands'}[0]->{'breakpoints'}->{'contigs'};
 
   for my $hdr (@$contigs_hdr) {
     $chrs{$hdr->{'id'}} = {'ID' => $hdr->{'id'},
