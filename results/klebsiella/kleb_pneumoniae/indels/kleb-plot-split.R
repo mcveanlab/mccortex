@@ -46,13 +46,13 @@ pdf(file="kleb_indels_split.pdf", width=10, height=10)
 
 # attempting to force equal sized plot dimensions
 par(mfrow=c(length(names), 1), cex=0.8, cex.lab=0.8, cex.axis=0.8, cex.main=1,
-    mgp=c(1.5, 0.3, 0), oma=c(2, 1, 2, 1), pin=c(6,2), mar=c(1, 3, 1, 3),
+    mgp=c(2.5, 0.3, 0), oma=c(2, 0.5, 2, 0.5), pin=c(6,2), mar=c(1, 4, 1, 4),
     tcl=-0.2)
 
 for(i in 1:length(names)) {
   plot(x, m[,1+i], log="y", col=colours[i], type="h",
        main=NA, xlab=NA, ylab="Count (log)",
-       xlim=c(-lim, lim), ylim=c(1, max(m)))
+       xlim=c(-lim, lim), ylim=c(1, max(m)), las=1)
   legend("topright", names[i], col=colours[i], bty="n")
 }
 
