@@ -423,8 +423,12 @@ sub make_data_files
   # purple/green Green is inversion
   # my @line_cols = qw(prgn-10-div-2 prgn-10-div-4 prgn-10-div-7 prgn-10-div-9);
 
-  print "  Key: light/dark purple - Regular breakpoint\n";
-  print "       light/dark green  - Inversion breakpoint\n";
+  print "  Key:\n";
+  print "  - red: SNP\n";
+  print "  - blue: small insertion (<$binsize bp)\n";
+  print "  - green: small deletion (<$binsize bp)\n";
+  print "  - purple: regular breakpoint\n";
+  print "  - orange: inversion breakpoint (opposite strands join)\n";
 
   my ($num_skipped,$num_entries) = (0,0);
   my ($fw_breakpoints, $rv_breakpoints) = (0,0);
@@ -498,7 +502,7 @@ sub make_data_files
         # mnps
         $mnphist[$chr5p->{'idx'}]->[int($pos5p/$binsize)]++;
       }
-      elsif(abs($pathlen-$reflen) < 200+min($pathlen,$reflen)) {
+      elsif(abs($pathlen-$reflen) < $binsize+min($pathlen,$reflen)) {
         if($pathlen < $reflen) {
           # deletion
           $delhist[$chr5p->{'idx'}]->[int($pos5p/$binsize)]++;

@@ -17,17 +17,9 @@ names <- c('McCortex Bubbles', 'McCortex Breakpoints', 'Platypus','Freebayes','C
 # colours <- c('red', 'green', 'blue', 'black', 'purple')
 
 library(RColorBrewer)
-line_cols <- brewer.pal(5, "Pastel1")
+colours <- brewer.pal(5, "Set1")
+# colours <- rep('black', 5)
 
-colours <- rep('black', 5)
-
-# points <- c('o','o','o', 'o', 'o')
-# points <- rep(3, 5)
-# points <- c(4, 4, 4, 4, 4)
-# points <- c(1, 2, 3, 20, 18)
-# points <- rep('*', 5)
-# points <- c(0, 1, 2, 3, 4)
-points <- c(16, 17, 0, 1, 6)
 
 title <- expression(paste(italic('Klebsiella pneumoniae'),' indels'))
 
@@ -50,36 +42,21 @@ for(i in 1:length(hists)) {
   }
 }
 
-# Map 0->1
-for(i in 1:nrow(m)) {
-  for(j in 1:ncol(m)) {
-    m[i,j] = max(m[i,j], 1)
-  }
-}
+pdf(file="kleb_indels_split.pdf", width=10, height=10)
 
-
-# plot
-
-jf=2
-pdf(file="kleb_indels.pdf",width=6,height=12)
-
-plot(NULL, log="y",
-     col=colours[1],pch=points[1], #type="b",
-     main=title, xlab="Indel size (bp)", ylab="Count (log)",
-     xlim=c(-lim, lim), ylim=c(1, max(m)))
+# attempting to force equal sized plot dimensions
+par(mfrow=c(length(names), 1), cex=0.8, cex.lab=0.8, cex.axis=0.8, cex.main=1,
+    mgp=c(1.5, 0.3, 0), oma=c(2, 1, 2, 1), pin=c(6,2), mar=c(1, 3, 1, 3),
+    tcl=-0.2)
 
 for(i in 1:length(names)) {
-  jitter_x = jitter(x,factor=jf)
-  points(jitter_x, m[,i+1],
-         pch=points[i], #type="b",
-         col=line_cols[i])
-  points(jitter_x, m[,i+1],
-         pch=points[i], type="l",
-         col=line_cols[i])
+  plot(x, m[,1+i], log="y", col=colours[i], type="h",
+       main=NA, xlab=NA, ylab="Count (log)",
+       xlim=c(-lim, lim), ylim=c(1, max(m)))
+  legend("topright", names[i], col=colours[i], bty="n")
 }
-legend("topright", names, col=line_cols, pch=points)
+
+title(title, outer=TRUE)
+mtext("Indel size (bp)", side=1, line=0.5, outer=TRUE, cex=0.8)
 
 dev.off()
-
-# dm <- data.frame(m)
-# p <- ggplot(dm, aes(x=dist, y=Platypus)) + geom_line()
