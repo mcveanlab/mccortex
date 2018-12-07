@@ -38,6 +38,7 @@ Install dependencies (for htslib) on mac:
 Or on linux:
 
     sudo apt install liblzma-dev libbz2-dev
+    sudo apt install r-base-core  # if you want to plot with R
 
 To compile for a maximum kmer size of 31:
 
