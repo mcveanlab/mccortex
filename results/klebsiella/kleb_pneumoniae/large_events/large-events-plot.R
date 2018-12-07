@@ -23,8 +23,9 @@ r <- r / 1000
 lim <- max(r[,1],r[,2])
 lim <- floor((ceiling(lim)+4)/5)*5
 
-pdf(file='kleb_large_events_R.pdf', width=6, height=6)
-plot(r, xlab=xlabel, ylab=ylabel, main=title, xlim=c(0,lim), ylim=c(0,lim))
+pdf(file='kleb_large_events_R_log.pdf', width=6, height=6)
+plot(r, xlab=xlabel, ylab=ylabel, log="xy",
+     main=title, xlim=c(0,lim), ylim=c(0,lim))
 dev.off()
 
 # With ggplot
@@ -37,7 +38,8 @@ df <- data.frame(ref=r[,1], sample=r[,2])
 
 p <- ggplot(df, aes(x=ref, y=sample)) +
      geom_point(shape=1) +
+     scale_x_log10() + scale_y_log10() +
      xlim(0,lim) + ylim(0,lim) +
      ggtitle(title) + xlab(xlabel) + ylab(ylabel)
 
-ggsave(p, file='kleb_large_events_ggplot.pdf', width=6, height=6)
+ggsave(p, file='kleb_large_events_ggplot_log.pdf', width=6, height=6)

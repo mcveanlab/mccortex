@@ -3,14 +3,17 @@
 use strict;
 use warnings;
 
-# Walking through 100 copies of Alu, assume ~1000 kmers each
+# Walking through 100 copies of Alu, assume ~300 kmers each
 # ~1 million copies Alu in the human genome
+
+my $alu_length = 300;
+my $n_copies = 100;
 
 # Power in perl is **
 my $k = 3;
 my $m = 2**22 * 8; # 4MB, 33.6 million bits
 my $success = 1;
-my $num_rep_kmers = 100*1000;
+my $num_rep_kmers = $n_copies*$alu_length;
 my $false_pos_rate;
 
 for(my $i = 0; $i < $num_rep_kmers; $i++) {
