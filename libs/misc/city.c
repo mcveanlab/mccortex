@@ -35,8 +35,6 @@
 #include <string.h>
 #include "city.h"
 
-#define HAVE_BUILTIN_EXPECT 1
-
 static uint64 UNALIGNED_LOAD64(const char *p) {
   uint64 result;
   memcpy(&result, p, sizeof(result));
@@ -77,7 +75,7 @@ static uint32 UNALIGNED_LOAD32(const char *p) {
 #endif  // WORDS_BIGENDIAN
 
 #if !defined(LIKELY)
-#if HAVE_BUILTIN_EXPECT
+#if (defined(HAVE_BUILTIN_EXPECT) && HAVE_BUILTIN_EXPECT)
 #define LIKELY(x) (__builtin_expect(!!(x), 1))
 #else
 #define LIKELY(x) (x)
