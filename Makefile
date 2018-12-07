@@ -249,7 +249,7 @@ test: tests
 # Force version.h to be remade if $(CTX_VERSION) has changed.
 ifndef CTX_VERSION
 ifneq "$(wildcard .git)" ""
-CTX_VERSION := $(shell git describe --always)
+CTX_VERSION := $(shell git describe --all --always)
 # CTX_VERSION := $(shell git log --pretty=format:'%h' -n 1 --tags)
 src/global/version.h: $(if $(wildcard src/global/version.h),$(if $(findstring "$(CTX_VERSION)",$(shell cat src/global/version.h)),,force))
 endif
